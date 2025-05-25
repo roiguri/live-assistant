@@ -24,6 +24,8 @@
       "js": [
         "content/chat-ui.js",
         "content/chat-events.js", 
+        "content/screen-capture.js",
+        "content/api-utils.js",
         "content.js"
       ],
       "css": ["styles/content.css"]

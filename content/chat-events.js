@@ -263,25 +263,54 @@ window.ChatEvents = (function() {
       }
     }
     
-    function handleLiveShare(container) {
+    async function handleLiveShare(container) {
       const menuItem = container.querySelector('[data-action="toggle-live"]');
       const iconEl = menuItem.querySelector('.menu-icon');
       const isActive = menuItem.classList.contains('live-active');
       
       if (isActive) {
         // Stop live share
+        window.ScreenCapture.stopScreenShare();
         menuItem.classList.remove('live-active');
         menuItem.classList.add('live-inactive');
         menuItem.title = 'Start live share';
         iconEl.textContent = '▶️';
-        window.ChatUI.addMessage(container, 'Live sharing stopped.', 'ai');
+        window.ChatUI.addMessage(container, 'Screen sharing stopped.', 'ai');
       } else {
         // Start live share
-        menuItem.classList.remove('live-inactive');
-        menuItem.classList.add('live-active');
-        menuItem.title = 'Stop live share';
-        iconEl.textContent = '⏸️';
-        window.ChatUI.addMessage(container, 'Live screen sharing will be implemented in the next steps.', 'ai');
+        window.ChatUI.addMessage(container, 'Requesting screen share permission...', 'ai');
+        
+        const result = await window.ScreenCapture.startScreenShare();
+        
+        if (result.success) {
+          menuItem.classList.remove('live-inactive');
+          menuItem.classList.add('live-active');
+          menuItem.title = 'Stop live share';
+          iconEl.textContent = '⏸️';
+          
+          const stats = window.ScreenCapture.getStats();
+          const message = `Screen sharing started! Capturing ${stats.width}x${stats.height} at ${stats.frameRate}fps`;
+          window.ChatUI.addMessage(container, message, 'ai');
+        } else {
+          window.ChatUI.addMessage(container, `Failed to start screen sharing: ${result.error}`, 'ai');
+        }
+      }
+    }
+
+    function onScreenShareEnded() {
+      const container = document.getElementById('assistant-chat');
+      if (container) {
+        const menuItem = container.querySelector('[data-action="toggle-live"]');
+        const iconEl = menuItem.querySelector('.menu-icon');
+        
+        if (menuItem.classList.contains('live-active')) {
+          // Reset UI when user stops sharing via browser (not our button)
+          menuItem.classList.remove('live-active');
+          menuItem.classList.add('live-inactive');
+          menuItem.title = 'Start live share';
+          iconEl.textContent = '▶️';
+          window.ChatUI.addMessage(container, 'Screen sharing ended.', 'ai');
+        }
       }
     }
     
@@ -331,7 +360,8 @@ window.ChatEvents = (function() {
     
     // Public API
     return {
-      setupEventListeners
+      setupEventListeners,
+      onScreenShareEnded
     };
     
   })();
