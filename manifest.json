@@ -1,0 +1,10 @@
+{
+    "manifest_version": 3,
+    "name": "Live Stream AI Assistant",
+    "version": "1.0",
+    "description": "Real-time AI assistant with screen capture",
+    
+    "permissions": [
+      "storage"
+    ]
+  }
