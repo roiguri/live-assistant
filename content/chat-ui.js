@@ -38,9 +38,12 @@ window.ChatUI = (function() {
             </button>
           </div>
 
-          <button class="ai-minimize-btn" title="Minimize chat" style="display: none;">
-            <span>−</span>
-          </button>
+          <div class="ai-title-panel" style="display: none;">
+            <span class="ai-title-text">Live Assistant</span>
+            <button class="ai-minimize-btn" title="Minimize chat">
+              <span>×</span>
+            </button>
+          </div>
           
           <div class="ai-chat-messages" style="display: none;">
             <div class="ai-welcome-message">Hello! I'm your AI assistant.</div>
@@ -71,12 +74,12 @@ window.ChatUI = (function() {
       
       const messagesArea = container.querySelector('.ai-chat-messages');
       const recentArea = container.querySelector('.ai-chat-recent');
-      const minimizeBtn = container.querySelector('.ai-minimize-btn');
+      const titlePanel = container.querySelector('.ai-title-panel');
       
       // Hide all areas first
       messagesArea.style.display = 'none';
       recentArea.style.display = 'none';
-      minimizeBtn.style.display = 'none';
+      titlePanel.style.display = 'none';
       
       // Show appropriate area based on state
       switch (currentState) {
@@ -85,12 +88,12 @@ window.ChatUI = (function() {
           break;
         case STATES.RECENT:
           recentArea.style.display = 'block';
-          minimizeBtn.style.display = 'block';
+          titlePanel.style.display = 'flex';
           updateRecentArea(container);
           break;
         case STATES.FULL:
           messagesArea.style.display = 'block';
-          minimizeBtn.style.display = 'block';
+          titlePanel.style.display = 'flex';
           break;
       }
       

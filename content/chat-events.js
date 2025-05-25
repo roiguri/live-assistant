@@ -319,12 +319,14 @@ window.ChatEvents = (function() {
     }
 
     function setupMinimizeButton(container) {
-        const minimizeBtn = container.querySelector('.ai-minimize-btn');
-        
-        minimizeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          window.ChatUI.setState(container, window.ChatUI.STATES.MINIMAL);
-        });
+      const minimizeBtn = container.querySelector('.ai-title-panel .ai-minimize-btn');
+      
+      if (minimizeBtn) {
+          minimizeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.ChatUI.setState(container, window.ChatUI.STATES.MINIMAL);
+          });
+      }
     }
     
     // Public API
