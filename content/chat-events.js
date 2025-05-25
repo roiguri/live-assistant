@@ -5,6 +5,7 @@ window.ChatEvents = (function() {
     function setupEventListeners(container) {
       setupHoverMenuEvents(container);
       setupMessageEvents(container);
+      setupMinimizeButton(container);
       setupDragEvents(container);
       setupClickOutside(container);
     }
@@ -265,6 +266,15 @@ window.ChatEvents = (function() {
       
       sendBtn.disabled = !hasText;
       sendBtn.style.opacity = hasText ? '1' : '0.6';
+    }
+
+    function setupMinimizeButton(container) {
+        const minimizeBtn = container.querySelector('.ai-minimize-btn');
+        
+        minimizeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.ChatUI.setState(container, window.ChatUI.STATES.MINIMAL);
+        });
     }
     
     // Public API

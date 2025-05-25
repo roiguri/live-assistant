@@ -31,6 +31,18 @@
     display: flex;
     flex-direction: column;
   }
+
+  #ai-assistant-chat[data-state="full"] .ai-chat-messages {
+    padding: 12px;
+    padding-top: 48px; /* Space for corner button */
+    padding-left: 48px; /* Space for corner button */
+  }
+  
+  #ai-assistant-chat[data-state="recent"] .ai-chat-recent {
+    padding: 8px 12px 6px;
+    padding-top: 30px; /* Space for corner button */
+    padding-left: 48px; /* Space for corner button */
+  }
   
   /* Main container */
   .ai-chat-main {
@@ -224,12 +236,50 @@
     transform: none;
   }
   
-  /* Hover trigger for menu - Fix #1: Add hover for full state */
+  /* Hover trigger for menu */
   .ai-chat-input-area:hover .ai-chat-menu,
   #ai-assistant-chat[data-state="full"]:hover .ai-chat-menu {
     opacity: 1;
     transform: translateY(0);
     pointer-events: all;
+  }
+
+  .ai-minimize-btn {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: white;
+    color: #666;
+    border: none;
+    border-right: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+    border-top-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    z-index: 10;
+  }
+  
+  .ai-minimize-btn:hover {
+    background: #f8f8f8;
+    color: #333;
+    border-right-color: #d0d0d0;
+    border-bottom-color: #d0d0d0;
+  }
+  
+  .ai-minimize-btn span {
+    line-height: 1;
+    font-size: 16px;
+    margin-top: -2px;
+    margin-left: -2px;
   }
   
   /* Animations */

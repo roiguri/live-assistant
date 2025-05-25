@@ -23,6 +23,9 @@ window.ChatUI = (function() {
     function getChatHTML() {
       return `
         <div class="ai-chat-main">
+          <button class="ai-minimize-btn" title="Minimize chat" style="display: none;">
+            <span>-</span>
+          </button>
           <div class="ai-chat-menu">
             <button class="ai-menu-item" data-action="toggle-full" title="Toggle chat history">
               <span class="ai-menu-icon">💬</span>
@@ -34,6 +37,10 @@ window.ChatUI = (function() {
               <span class="ai-menu-icon">🗑️</span>
             </button>
           </div>
+
+          <button class="ai-minimize-btn" title="Minimize chat" style="display: none;">
+            <span>−</span>
+          </button>
           
           <div class="ai-chat-messages" style="display: none;">
             <div class="ai-welcome-message">Hello! I'm your AI assistant.</div>
@@ -61,10 +68,12 @@ window.ChatUI = (function() {
       
       const messagesArea = container.querySelector('.ai-chat-messages');
       const recentArea = container.querySelector('.ai-chat-recent');
+      const minimizeBtn = container.querySelector('.ai-minimize-btn');
       
       // Hide all areas first
       messagesArea.style.display = 'none';
       recentArea.style.display = 'none';
+      minimizeBtn.style.display = 'none';
       
       // Show appropriate area based on state
       switch (currentState) {
@@ -73,10 +82,12 @@ window.ChatUI = (function() {
           break;
         case STATES.RECENT:
           recentArea.style.display = 'block';
+          minimizeBtn.style.display = 'block';
           updateRecentArea(container);
           break;
         case STATES.FULL:
           messagesArea.style.display = 'block';
+          minimizeBtn.style.display = 'block';
           break;
       }
       
@@ -137,18 +148,6 @@ window.ChatUI = (function() {
     function getInputValue(container) {
       const input = container.querySelector('.ai-chat-input');
       return input.value.trim();
-    }
-    
-    function toggleMenu(container) {
-      const menu = container.querySelector('.ai-chat-menu');
-      const isVisible = menu.style.display !== 'none';
-      menu.style.display = isVisible ? 'none' : 'block';
-      return !isVisible;
-    }
-    
-    function hideMenu(container) {
-      const menu = container.querySelector('.ai-chat-menu');
-      menu.style.display = 'none';
     }
     
     function toggleFullChat(container) {
