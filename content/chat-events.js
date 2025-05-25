@@ -11,9 +11,9 @@ window.ChatEvents = (function() {
     }
     
     function setupHoverMenuEvents(container) {
-      const inputArea = container.querySelector('.ai-chat-input-area');
-      const menu = container.querySelector('.ai-chat-menu');
-      const menuItems = container.querySelectorAll('.ai-menu-item');
+      const inputArea = container.querySelector('.chat-input-area');
+      const menu = container.querySelector('.chat-menu');
+      const menuItems = container.querySelectorAll('.menu-item');
       
       // Dynamic hover target based on chat state
       function getHoverTarget() {
@@ -83,7 +83,7 @@ window.ChatEvents = (function() {
     }
     
     function positionMenu(container) {
-      const menu = container.querySelector('.ai-chat-menu');
+      const menu = container.querySelector('.chat-menu');
       const containerRect = container.getBoundingClientRect();
       
       // Calculate available space above and below
@@ -114,8 +114,8 @@ window.ChatEvents = (function() {
     }
     
     function setupMessageEvents(container) {
-      const input = container.querySelector('.ai-chat-input');
-      const sendBtn = container.querySelector('.ai-chat-send');
+      const input = container.querySelector('.chat-input');
+      const sendBtn = container.querySelector('.chat-send');
       
       // Send button click
       sendBtn.addEventListener('click', () => {
@@ -151,7 +151,7 @@ window.ChatEvents = (function() {
     }
     
     function setupDragEvents(container) {
-      const dragHandle = container.querySelector('.ai-drag-handle');
+      const dragHandle = container.querySelector('.drag-handle');
       let isDragging = false;
       let dragOffset = { x: 0, y: 0 };
       
@@ -171,7 +171,7 @@ window.ChatEvents = (function() {
         dragHandle.style.transform = 'scale(1.1)';
         
         // Hide menu during drag
-        const menu = container.querySelector('.ai-chat-menu');
+        const menu = container.querySelector('.chat-menu');
         menu.classList.remove('visible');
         
         // Prevent text selection during drag
@@ -210,7 +210,7 @@ window.ChatEvents = (function() {
           // Reset visual feedback
           document.body.style.cursor = '';
           document.body.style.userSelect = '';
-          const dragHandle = container.querySelector('.ai-drag-handle');
+          const dragHandle = container.querySelector('.drag-handle');
           if (dragHandle) {
             dragHandle.style.opacity = '';
             dragHandle.style.transform = '';
@@ -241,7 +241,7 @@ window.ChatEvents = (function() {
       document.addEventListener('click', (e) => {
         // Hide menu if clicking outside (for touch devices)
         if (!container.contains(e.target)) {
-          const menu = container.querySelector('.ai-chat-menu');
+          const menu = container.querySelector('.chat-menu');
           menu.classList.remove('visible');
         }
       });
@@ -265,7 +265,7 @@ window.ChatEvents = (function() {
     
     function handleLiveShare(container) {
       const menuItem = container.querySelector('[data-action="toggle-live"]');
-      const iconEl = menuItem.querySelector('.ai-menu-icon');
+      const iconEl = menuItem.querySelector('.menu-icon');
       const isActive = menuItem.classList.contains('live-active');
       
       if (isActive) {
@@ -310,8 +310,8 @@ window.ChatEvents = (function() {
     }
     
     function updateSendButtonState(container) {
-      const input = container.querySelector('.ai-chat-input');
-      const sendBtn = container.querySelector('.ai-chat-send');
+      const input = container.querySelector('.chat-input');
+      const sendBtn = container.querySelector('.chat-send');
       const hasText = input.value.trim().length > 0;
       
       sendBtn.disabled = !hasText;
@@ -319,7 +319,7 @@ window.ChatEvents = (function() {
     }
 
     function setupMinimizeButton(container) {
-      const minimizeBtn = container.querySelector('.ai-title-panel .ai-minimize-btn');
+      const minimizeBtn = container.querySelector('.title-panel .minimize-btn');
       
       if (minimizeBtn) {
           minimizeBtn.addEventListener('click', (e) => {

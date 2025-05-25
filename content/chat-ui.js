@@ -14,7 +14,7 @@ window.ChatUI = (function() {
     
     function createChatContainer() {
       const container = document.createElement('div');
-      container.id = 'ai-assistant-chat';
+      container.id = 'assistant-chat';
       container.setAttribute('data-state', currentState);
       container.innerHTML = getChatHTML();
       return container;
@@ -22,43 +22,43 @@ window.ChatUI = (function() {
     
     function getChatHTML() {
       return `
-        <div class="ai-chat-main">
-          <button class="ai-minimize-btn" title="Minimize chat" style="display: none;">
+        <div class="chat-main">
+          <button class="minimize-btn" title="Minimize chat" style="display: none;">
             <span>-</span>
           </button>
-          <div class="ai-chat-menu">
-            <button class="ai-menu-item" data-action="toggle-full" title="Toggle chat history">
-              <span class="ai-menu-icon">💬</span>
+          <div class="chat-menu">
+            <button class="menu-item" data-action="toggle-full" title="Toggle chat history">
+              <span class="menu-icon">💬</span>
             </button>
-            <button class="ai-menu-item live-inactive" data-action="toggle-live" title="Start live share">
-              <span class="ai-menu-icon">▶️</span>
+            <button class="menu-item live-inactive" data-action="toggle-live" title="Start live share">
+              <span class="menu-icon">▶️</span>
             </button>
-            <button class="ai-menu-item" data-action="clear-chat" title="Clear chat">
-              <span class="ai-menu-icon">🗑️</span>
+            <button class="menu-item" data-action="clear-chat" title="Clear chat">
+              <span class="menu-icon">🗑️</span>
             </button>
           </div>
 
-          <div class="ai-title-panel" style="display: none;">
-            <span class="ai-title-text">Live Assistant</span>
-            <button class="ai-minimize-btn" title="Minimize chat">
+          <div class="title-panel" style="display: none;">
+            <span class="title-text">Live Assistant</span>
+            <button class="minimize-btn" title="Minimize chat">
               <span>×</span>
             </button>
           </div>
           
-          <div class="ai-chat-messages" style="display: none;">
-            <div class="ai-welcome-message">Hello! I'm your AI assistant.</div>
+          <div class="chat-messages" style="display: none;">
+            <div class="welcome-message">Hello! I'm your AI assistant.</div>
           </div>
           
-          <div class="ai-chat-recent" style="display: none;">
+          <div class="chat-recent" style="display: none;">
             <!-- Last message will appear here -->
           </div>
           
-          <div class="ai-chat-input-area">
-            <input type="text" class="ai-chat-input" placeholder="Ask me anything...">
-            <button class="ai-chat-send" title="Send message">
+          <div class="chat-input-area">
+            <input type="text" class="chat-input" placeholder="Ask me anything...">
+            <button class="chat-send" title="Send message">
               <span>⮜</span>
             </button>
-            <div class="ai-drag-handle" title="Drag to move">
+            <div class="drag-handle" title="Drag to move">
               <span>⋮⋮</span>
             </div>
           </div>
@@ -72,9 +72,9 @@ window.ChatUI = (function() {
       currentState = newState;
       container.setAttribute('data-state', currentState);
       
-      const messagesArea = container.querySelector('.ai-chat-messages');
-      const recentArea = container.querySelector('.ai-chat-recent');
-      const titlePanel = container.querySelector('.ai-title-panel');
+      const messagesArea = container.querySelector('.chat-messages');
+      const recentArea = container.querySelector('.chat-recent');
+      const titlePanel = container.querySelector('.title-panel');
       
       // Hide all areas first
       messagesArea.style.display = 'none';
@@ -118,12 +118,12 @@ window.ChatUI = (function() {
     }
     
     function updateRecentArea(container) {
-      const recentArea = container.querySelector('.ai-chat-recent');
+      const recentArea = container.querySelector('.chat-recent');
       const lastMessage = messages[messages.length - 1];
       
       if (lastMessage && lastMessage.sender === 'ai') {
         recentArea.innerHTML = `
-          <div class="ai-message ai-message-ai ai-recent-message">
+          <div class="message message-ai recent-message">
             ${lastMessage.text}
           </div>
         `;
@@ -133,7 +133,7 @@ window.ChatUI = (function() {
     }
     
     function updateMenuText(container) {
-      const menuItem = container.querySelector('[data-action="toggle-full"] .ai-menu-text');
+      const menuItem = container.querySelector('[data-action="toggle-full"] .menu-text');
       if (menuItem) {
         menuItem.textContent = currentState === STATES.FULL ? 'Minimize chat' : 'View all messages';
       }
@@ -144,9 +144,9 @@ window.ChatUI = (function() {
       messages.push({ text, sender, timestamp: Date.now() });
       
       // Add to full messages area
-      const messagesArea = container.querySelector('.ai-chat-messages');
+      const messagesArea = container.querySelector('.chat-messages');
       const messageEl = document.createElement('div');
-      messageEl.className = `ai-message ai-message-${sender}`;
+      messageEl.className = `message message-${sender}`;
       messageEl.textContent = text;
       messagesArea.appendChild(messageEl);
       messagesArea.scrollTop = messagesArea.scrollHeight;
@@ -163,12 +163,12 @@ window.ChatUI = (function() {
     }
     
     function clearInput(container) {
-      const input = container.querySelector('.ai-chat-input');
+      const input = container.querySelector('.chat-input');
       input.value = '';
     }
     
     function getInputValue(container) {
-      const input = container.querySelector('.ai-chat-input');
+      const input = container.querySelector('.chat-input');
       return input.value.trim();
     }
     
@@ -179,8 +179,8 @@ window.ChatUI = (function() {
     
     function clearChat(container) {
       messages = [];
-      const messagesArea = container.querySelector('.ai-chat-messages');
-      messagesArea.innerHTML = '<div class="ai-welcome-message">Hello! I\'m your AI assistant.</div>';
+      const messagesArea = container.querySelector('.chat-messages');
+      messagesArea.innerHTML = '<div class="welcome-message">Hello! I\'m your AI assistant.</div>';
       setState(container, STATES.MINIMAL);
     }
     

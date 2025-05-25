@@ -3,8 +3,8 @@
     'use strict';
     
     // Prevent multiple injections
-    if (window.aiAssistantInjected) return;
-    window.aiAssistantInjected = true;
+    if (window.assistantInjected) return;
+    window.assistantInjected = true;
     
     // Wait for modules to be loaded, then initialize
     initializeChat();
