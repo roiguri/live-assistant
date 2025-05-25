@@ -5,11 +5,16 @@
     "description": "Real-time AI assistant with screen capture",
     
     "permissions": [
-        "storage"
+      "storage"
     ],
-
+    
     "content_scripts": [{
-        "matches": ["<all_urls>"],
-        "js": ["content.js"]
+      "matches": ["<all_urls>"],
+      "js": [
+        "content/chat-ui.js",
+        "content/chat-events.js", 
+        "content.js"
+      ],
+      "css": ["styles/content.css"]
     }]
-  }
+}
