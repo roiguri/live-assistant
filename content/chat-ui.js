@@ -55,6 +55,9 @@ window.ChatUI = (function() {
             <button class="ai-chat-send" title="Send message">
               <span>⮜</span>
             </button>
+            <div class="ai-drag-handle" title="Drag to move">
+              <span>⋮⋮</span>
+            </div>
           </div>
         </div>
       `;
@@ -91,8 +94,24 @@ window.ChatUI = (function() {
           break;
       }
       
+      // Ensure chat stays within viewport bounds after state change
+      ensureWithinViewport(container);
+      
       // Update menu button text
       updateMenuText(container);
+    }
+    
+    function ensureWithinViewport(container) {
+      const rect = container.getBoundingClientRect();
+      const maxY = window.innerHeight - rect.height;
+      
+      if (rect.top < 10) {
+        container.style.top = '10px';
+        container.style.bottom = 'auto';
+      } else if (rect.bottom > window.innerHeight - 10) {
+        container.style.top = Math.max(10, maxY - 10) + 'px';
+        container.style.bottom = 'auto';
+      }
     }
     
     function updateRecentArea(container) {

@@ -86,13 +86,31 @@ window.ChatEvents = (function() {
       const menu = container.querySelector('.ai-chat-menu');
       const containerRect = container.getBoundingClientRect();
       
-      // Position menu above the input area, aligned to the right
-      const menuRight = window.innerWidth - containerRect.right;
-      const menuBottom = window.innerHeight - containerRect.top + 10;
+      // Calculate available space above and below
+      const spaceAbove = containerRect.top;
+      const spaceBelow = window.innerHeight - containerRect.bottom;
+      const menuHeight = 50; // Approximate menu height
       
-      menu.style.right = Math.max(10, menuRight) + 'px';
-      menu.style.bottom = menuBottom + 'px';
-      menu.style.left = 'auto';
+      // Determine if menu should appear above or below
+      const shouldShowBelow = spaceAbove < menuHeight + 20 && spaceBelow > menuHeight + 20;
+      
+      const menuRight = window.innerWidth - containerRect.right;
+      
+      if (shouldShowBelow) {
+        // Position menu below the chat
+        const menuTop = containerRect.bottom + 10;
+        menu.style.right = Math.max(10, menuRight) + 'px';
+        menu.style.top = menuTop + 'px';
+        menu.style.bottom = 'auto';
+        menu.style.left = 'auto';
+      } else {
+        // Position menu above the chat (default)
+        const menuBottom = window.innerHeight - containerRect.top + 10;
+        menu.style.right = Math.max(10, menuRight) + 'px';
+        menu.style.bottom = menuBottom + 'px';
+        menu.style.top = 'auto';
+        menu.style.left = 'auto';
+      }
     }
     
     function setupMessageEvents(container) {
@@ -133,41 +151,47 @@ window.ChatEvents = (function() {
     }
     
     function setupDragEvents(container) {
-      const inputArea = container.querySelector('.ai-chat-input-area');
+      const dragHandle = container.querySelector('.ai-drag-handle');
       let isDragging = false;
       let dragOffset = { x: 0, y: 0 };
-      let dragStartTime = 0;
       
-      // Only start drag when clicking on the input area background, not on controls
-      inputArea.addEventListener('mousedown', (e) => {
-        // Don't drag if clicking on input, buttons, or menu
-        if (e.target.matches('input, button, span, .ai-chat-menu, .ai-chat-menu *')) return;
-        
-        dragStartTime = Date.now();
+      // Start drag on drag handle mousedown
+      dragHandle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         isDragging = true;
+        
         const rect = container.getBoundingClientRect();
         dragOffset.x = e.clientX - rect.left;
         dragOffset.y = e.clientY - rect.top;
         
-        container.style.cursor = 'grabbing';
-        inputArea.style.cursor = 'grabbing';
+        // Visual feedback
+        document.body.style.cursor = 'grabbing';
+        dragHandle.style.opacity = '0.8';
+        dragHandle.style.transform = 'scale(1.1)';
         
         // Hide menu during drag
         const menu = container.querySelector('.ai-chat-menu');
         menu.classList.remove('visible');
+        
+        // Prevent text selection during drag
+        document.body.style.userSelect = 'none';
       });
       
+      // Handle drag movement
       document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
         
         e.preventDefault();
+        e.stopPropagation();
         
         let newX = e.clientX - dragOffset.x;
         let newY = e.clientY - dragOffset.y;
         
         // Keep within viewport bounds
-        const maxX = window.innerWidth - container.offsetWidth;
-        const maxY = window.innerHeight - container.offsetHeight;
+        const containerRect = container.getBoundingClientRect();
+        const maxX = window.innerWidth - containerRect.width;
+        const maxY = window.innerHeight - containerRect.height;
         
         newX = Math.max(10, Math.min(newX, maxX - 10));
         newY = Math.max(10, Math.min(newY, maxY - 10));
@@ -178,11 +202,37 @@ window.ChatEvents = (function() {
         container.style.bottom = 'auto';
       });
       
-      document.addEventListener('mouseup', () => {
+      // End drag on mouseup OR mouseleave
+      function endDrag() {
         if (isDragging) {
           isDragging = false;
-          container.style.cursor = '';
-          inputArea.style.cursor = '';
+          
+          // Reset visual feedback
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          const dragHandle = container.querySelector('.ai-drag-handle');
+          if (dragHandle) {
+            dragHandle.style.opacity = '';
+            dragHandle.style.transform = '';
+          }
+        }
+      }
+      
+      document.addEventListener('mouseup', endDrag);
+      document.addEventListener('mouseleave', endDrag);
+      
+      // Hover effects for drag handle
+      dragHandle.addEventListener('mouseenter', () => {
+        if (!isDragging) {
+          dragHandle.style.opacity = '1';
+          dragHandle.style.transform = 'scale(1.05)';
+        }
+      });
+      
+      dragHandle.addEventListener('mouseleave', () => {
+        if (!isDragging) {
+          dragHandle.style.opacity = '';
+          dragHandle.style.transform = '';
         }
       });
     }
