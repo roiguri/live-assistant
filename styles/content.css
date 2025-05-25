@@ -34,6 +34,8 @@
 #ai-assistant-chat[data-state="full"] .ai-chat-messages {
   padding: 12px;
   padding-top: 12px; /* Title panel provides spacing */
+  direction: ltr;
+  text-align: left;
 }
 
 #ai-assistant-chat[data-state="recent"] .ai-chat-recent {
@@ -120,6 +122,7 @@
   flex-shrink: 0;
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
+  direction: ltr;
 }
 
 .ai-title-text {
@@ -247,6 +250,8 @@
   font-size: 13px;
   background: #fafafa;
   transition: all 0.2s;
+  direction: ltr;
+  text-align: left;
 }
 
 .ai-chat-input:focus {
