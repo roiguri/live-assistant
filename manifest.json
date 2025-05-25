@@ -5,8 +5,17 @@
     "description": "Real-time AI assistant with screen capture",
     
     "permissions": [
-      "storage"
+      "storage",
+      "activeTab"
     ],
+
+    "host_permissions": [
+      "https://generativelanguage.googleapis.com/*"
+    ],
+
+    "background": {
+      "service_worker": "background.js"
+    },
 
     "icons": {
       "16": "images/icon-16.png",
