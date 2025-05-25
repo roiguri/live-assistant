@@ -7,6 +7,8 @@ let connectionState = {
   videoStreaming: false,
   lastError: null
 };
+let messageCounter = 0;
+let pendingMessages = new Map(); // Track sent messages waiting for response
 
 // Initialize connection when extension starts
 chrome.runtime.onStartup.addListener(initializeConnection);
@@ -117,7 +119,10 @@ function sendSetupMessage() {
   const setupMessage = {
     setup: {
       model: "models/gemini-2.0-flash-exp",
-      system_instruction: {
+      generationConfig: {
+        responseModalities: ["TEXT"]
+      },
+      systemInstruction: {
         parts: [{
           text: "You are a helpful AI assistant watching the user's screen. Provide context-aware assistance based on what you see and the conversation. Be concise but helpful."
         }]
@@ -129,22 +134,50 @@ function sendSetupMessage() {
   ws.send(JSON.stringify(setupMessage));
 }
 
-function handleTextMessage(text, tabId) {
+async function handleTextMessage(text, tabId) {
   if (!isConnected()) {
     console.error('AI Assistant: Cannot send text - not connected');
+    console.log('AI Assistant: Connection state:', connectionState);
     return;
   }
   
+  const messageId = ++messageCounter;
   const textMessage = {
-    client_content: {
+    clientContent: {
       turns: [{
+        role: "user",
         parts: [{ text: text }]
-      }]
+      }],
+      turnComplete: true
     }
   };
   
-  console.log('AI Assistant: Sending text message:', text);
-  ws.send(JSON.stringify(textMessage));
+  // Track this message
+  pendingMessages.set(`msg_${messageId}`, {
+    text: text,
+    timestamp: Date.now(),
+    tabId: tabId
+  });
+  
+  console.log(`AI Assistant: [${messageId}] Sending text message:`, text);
+  console.log(`AI Assistant: [${messageId}] Full payload:`, JSON.stringify(textMessage, null, 2));
+  console.log(`AI Assistant: [${messageId}] WebSocket state:`, ws.readyState);
+  console.log(`AI Assistant: [${messageId}] Pending messages:`, pendingMessages.size);
+  
+  try {
+    ws.send(JSON.stringify(textMessage));
+    console.log(`AI Assistant: [${messageId}] Message sent successfully`);
+  } catch (error) {
+    console.error(`AI Assistant: [${messageId}] Failed to send message:`, error);
+    pendingMessages.delete(`msg_${messageId}`);
+  }
+  
+  // Timeout check for stuck messages
+  setTimeout(() => {
+    if (pendingMessages.has(`msg_${messageId}`)) {
+      console.warn(`AI Assistant: [${messageId}] No response after 30 seconds for message: "${text}"`);
+    }
+  }, 30000);
 }
 
 function handleVideoChunk(base64Data, mimeType, tabId) {
@@ -176,11 +209,47 @@ function stopVideoStreaming(tabId) {
 }
 
 function handleGeminiResponse(response) {
-  console.log('AI Assistant: Processing Gemini response:', response);
+  console.log('AI Assistant: Raw Gemini response:', JSON.stringify(response, null, 2));
   
-  // Forward response to content script
-  // (This will be implemented in Step 3.1)
-  // For now, just log the response
+  // Check for different response types
+  if (response.setupComplete) {
+    console.log('AI Assistant: Setup completed successfully');
+    return;
+  }
+  
+  if (response.serverContent) {
+    console.log('AI Assistant: Received server content response');
+    const turnId = response.serverContent.turn_id;
+    if (turnId && pendingMessages.has(turnId)) {
+      const originalMessage = pendingMessages.get(turnId);
+      console.log(`AI Assistant: Response received for message: "${originalMessage.text}"`);
+      pendingMessages.delete(turnId);
+    }
+    
+    // Extract text from response
+    if (response.serverContent.parts) {
+      response.serverContent.parts.forEach(part => {
+        if (part.text) {
+          console.log('AI Assistant: AI Response Text:', part.text);
+        }
+      });
+    }
+  }
+  
+  if (response.toolCall) {
+    console.log('AI Assistant: Received tool call');
+  }
+  
+  if (response.error) {
+    console.error('AI Assistant: Gemini error response:', response.error);
+  }
+  
+  // Log any unrecognized response types
+  const knownKeys = ['setupComplete', 'serverContent', 'toolCall', 'error'];
+  const unknownKeys = Object.keys(response).filter(key => !knownKeys.includes(key));
+  if (unknownKeys.length > 0) {
+    console.log('AI Assistant: Unknown response keys:', unknownKeys, response);
+  }
 }
 
 function isConnected() {
