@@ -1,41 +1,132 @@
-// Chat UI Module - Handles HTML structure creation
+// Chat UI Module - Progressive disclosure interface with 3 states
 window.ChatUI = (function() {
     'use strict';
+    
+    // Chat states
+    const STATES = {
+      MINIMAL: 'minimal',     // Just input
+      RECENT: 'recent',       // Input + last message
+      FULL: 'full'           // Full chat history
+    };
+    
+    let currentState = STATES.MINIMAL;
+    let messages = [];
     
     function createChatContainer() {
       const container = document.createElement('div');
       container.id = 'ai-assistant-chat';
+      container.setAttribute('data-state', currentState);
       container.innerHTML = getChatHTML();
       return container;
     }
     
     function getChatHTML() {
       return `
-        <div class="ai-chat-header">
-          <span class="ai-chat-title">Live Assistant</span>
-          <button class="ai-chat-toggle">+</button>
-        </div>
-        <div class="ai-chat-body" style="display: none;">
-          <div class="ai-chat-messages">
-            <div class="ai-welcome-message">Hello! I'm your Live Assistant. Chat interface ready!</div>
+        <div class="ai-chat-main">
+          <div class="ai-chat-menu">
+            <button class="ai-menu-item" data-action="toggle-full" title="Toggle chat history">
+              <span class="ai-menu-icon">💬</span>
+            </button>
+            <button class="ai-menu-item live-inactive" data-action="toggle-live" title="Start live share">
+              <span class="ai-menu-icon">▶️</span>
+            </button>
+            <button class="ai-menu-item" data-action="clear-chat" title="Clear chat">
+              <span class="ai-menu-icon">🗑️</span>
+            </button>
           </div>
+          
+          <div class="ai-chat-messages" style="display: none;">
+            <div class="ai-welcome-message">Hello! I'm your AI assistant.</div>
+          </div>
+          
+          <div class="ai-chat-recent" style="display: none;">
+            <!-- Last message will appear here -->
+          </div>
+          
           <div class="ai-chat-input-area">
-            <input type="text" class="ai-chat-input" placeholder="Type your message...">
-            <button class="ai-chat-send">Send</button>
+            <input type="text" class="ai-chat-input" placeholder="Ask me anything...">
+            <button class="ai-chat-send" title="Send message">
+              <span>⮜</span>
+            </button>
           </div>
         </div>
       `;
     }
     
+    function setState(container, newState) {
+      if (!STATES[newState.toUpperCase()]) return;
+      
+      currentState = newState;
+      container.setAttribute('data-state', currentState);
+      
+      const messagesArea = container.querySelector('.ai-chat-messages');
+      const recentArea = container.querySelector('.ai-chat-recent');
+      
+      // Hide all areas first
+      messagesArea.style.display = 'none';
+      recentArea.style.display = 'none';
+      
+      // Show appropriate area based on state
+      switch (currentState) {
+        case STATES.MINIMAL:
+          // Nothing extra to show
+          break;
+        case STATES.RECENT:
+          recentArea.style.display = 'block';
+          updateRecentArea(container);
+          break;
+        case STATES.FULL:
+          messagesArea.style.display = 'block';
+          break;
+      }
+      
+      // Update menu button text
+      updateMenuText(container);
+    }
+    
+    function updateRecentArea(container) {
+      const recentArea = container.querySelector('.ai-chat-recent');
+      const lastMessage = messages[messages.length - 1];
+      
+      if (lastMessage && lastMessage.sender === 'ai') {
+        recentArea.innerHTML = `
+          <div class="ai-message ai-message-ai ai-recent-message">
+            ${lastMessage.text}
+          </div>
+        `;
+      } else {
+        recentArea.innerHTML = '';
+      }
+    }
+    
+    function updateMenuText(container) {
+      const menuItem = container.querySelector('[data-action="toggle-full"] .ai-menu-text');
+      if (menuItem) {
+        menuItem.textContent = currentState === STATES.FULL ? 'Minimize chat' : 'View all messages';
+      }
+    }
+    
     function addMessage(container, text, sender = 'user') {
+      // Store message
+      messages.push({ text, sender, timestamp: Date.now() });
+      
+      // Add to full messages area
       const messagesArea = container.querySelector('.ai-chat-messages');
       const messageEl = document.createElement('div');
       messageEl.className = `ai-message ai-message-${sender}`;
       messageEl.textContent = text;
       messagesArea.appendChild(messageEl);
-      
-      // Scroll to bottom
       messagesArea.scrollTop = messagesArea.scrollHeight;
+      
+      // Update state based on message
+      if (sender === 'ai' && currentState === STATES.MINIMAL) {
+        setState(container, STATES.RECENT);
+      }
+      
+      // Update recent area if visible
+      if (currentState === STATES.RECENT) {
+        updateRecentArea(container);
+      }
     }
     
     function clearInput(container) {
@@ -48,15 +139,28 @@ window.ChatUI = (function() {
       return input.value.trim();
     }
     
-    function toggleChatVisibility(container) {
-      const body = container.querySelector('.ai-chat-body');
-      const toggle = container.querySelector('.ai-chat-toggle');
-      
-      const isHidden = body.style.display === 'none';
-      body.style.display = isHidden ? 'flex' : 'none';
-      toggle.textContent = isHidden ? '−' : '+';
-      
-      return !isHidden; // Return true if now expanded
+    function toggleMenu(container) {
+      const menu = container.querySelector('.ai-chat-menu');
+      const isVisible = menu.style.display !== 'none';
+      menu.style.display = isVisible ? 'none' : 'block';
+      return !isVisible;
+    }
+    
+    function hideMenu(container) {
+      const menu = container.querySelector('.ai-chat-menu');
+      menu.style.display = 'none';
+    }
+    
+    function toggleFullChat(container) {
+      const newState = currentState === STATES.FULL ? STATES.RECENT : STATES.FULL;
+      setState(container, newState);
+    }
+    
+    function clearChat(container) {
+      messages = [];
+      const messagesArea = container.querySelector('.ai-chat-messages');
+      messagesArea.innerHTML = '<div class="ai-welcome-message">Hello! I\'m your AI assistant.</div>';
+      setState(container, STATES.MINIMAL);
     }
     
     // Public API
@@ -65,7 +169,11 @@ window.ChatUI = (function() {
       addMessage,
       clearInput,
       getInputValue,
-      toggleChatVisibility
+      toggleFullChat,
+      clearChat,
+      setState,
+      STATES,
+      getCurrentState: () => currentState
     };
     
   })();
