@@ -33,6 +33,7 @@
       "js": [
         "content/models/chat-state.js",
         "content/models/connection-state.js",
+        "content/views/chat-view.js",
         "content/chat-ui.js",
         "content/chat-events.js", 
         "content/screen-capture.js",
