@@ -349,34 +349,10 @@ window.ChatEvents = (function() {
     });
     
     // Show typing indicator
-    showTypingIndicator(container);
+    MessageView.showTypingIndicator(container);
   }
   
-  function showTypingIndicator(container) {
-    // Add temporary typing message
-    const typingId = 'typing-' + Date.now();
-    ConnectionState.setTyping(typingId);
-    
-    const messagesArea = container.querySelector('.chat-messages');
-    const typingMessage = document.createElement('div');
-    typingMessage.className = 'message message-ai typing';
-    typingMessage.setAttribute('data-message-id', typingId);
-    typingMessage.textContent = 'AI is thinking...';
-    messagesArea.appendChild(typingMessage);
-    messagesArea.scrollTop = messagesArea.scrollHeight;
-    
-    // Remove typing indicator after timeout (fallback)
-    setTimeout(() => {
-      removeTypingIndicator(container, typingId);
-    }, 10000); // 10 second timeout
-  }
-  
-  function removeTypingIndicator(container, typingId) {
-    const typingMessage = container.querySelector(`[data-message-id="${typingId}"]`);
-    if (typingMessage) {
-      typingMessage.remove();
-    }
-  }
+
   
   function updateSendButtonState(container) {
     const input = container.querySelector('.chat-input');
@@ -422,7 +398,7 @@ window.ChatEvents = (function() {
     
     // Remove typing indicator on first chunk
     if (ConnectionState.isTyping()) {
-      removeTypingIndicator(container, ConnectionState.getTypingId());
+      MessageView.removeTypingIndicator(container, ConnectionState.getTypingId());
       ConnectionState.clearTyping();
     }
     
@@ -431,32 +407,21 @@ window.ChatEvents = (function() {
     
     // If no current response element, create a new AI message
     if (!ConnectionState.getStreamingElement()) {
-      window.ChatUI.addMessage(container, text, 'ai');
-      const responseElement = container.querySelector('.message-ai:last-child');
-      ConnectionState.setStreaming(!isComplete, responseElement);
-      
-      if (!isComplete) {
-        responseElement.classList.add('streaming');
+      if (isComplete) {
+        // Complete message, add directly
+        window.ChatUI.addMessage(container, text, 'ai');
+      } else {
+        // Start streaming message
+        MessageView.startStreamingMessage(container, text);
       }
     } else {
       // Update existing response element (for streaming)
       const currentResponseElement = ConnectionState.getStreamingElement();
       const currentText = currentResponseElement.textContent + text;
-      currentResponseElement.textContent = currentText;
-      
-      // Scroll to bottom
-      const messagesArea = container.querySelector('.chat-messages');
-      if (messagesArea) {
-        messagesArea.scrollTop = messagesArea.scrollHeight;
-      }
+      MessageView.updateStreamingMessage(currentResponseElement, currentText);
       
       // Update recent area if in recent state
-      if (container.getAttribute('data-state') === 'recent') {
-        const recentArea = container.querySelector('.chat-recent .recent-message');
-        if (recentArea) {
-          recentArea.textContent = currentText;
-        }
-      }
+      MessageView.updateRecentMessage(container, currentText);
     }
     
     // If turn is complete, finalize and reset
@@ -475,12 +440,11 @@ window.ChatEvents = (function() {
   function finalizeCurrentResponse() {
     const currentResponseElement = ConnectionState.getStreamingElement();
     if (currentResponseElement) {
-      currentResponseElement.classList.remove('streaming');
+      MessageView.finalizeStreamingMessage(currentResponseElement);
       console.log('Content Script: AI response finalized');
     }
     
-    // Reset streaming state and clear timeout
-    ConnectionState.setStreaming(false);
+    // Clear timeout
     ConnectionState.clearResponseTimeout();
   }
   
@@ -494,7 +458,7 @@ window.ChatEvents = (function() {
     const container = document.getElementById('assistant-chat');
     if (container) {
       if (ConnectionState.isTyping()) {
-        removeTypingIndicator(container, ConnectionState.getTypingId());
+        MessageView.removeTypingIndicator(container, ConnectionState.getTypingId());
         ConnectionState.clearTyping();
       }
       
