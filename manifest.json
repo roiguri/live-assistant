@@ -32,6 +32,7 @@
       "matches": ["<all_urls>"],
       "js": [
         "content/models/chat-state.js",
+        "content/models/connection-state.js",
         "content/chat-ui.js",
         "content/chat-events.js", 
         "content/screen-capture.js",

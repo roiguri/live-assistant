@@ -355,7 +355,7 @@ window.ChatEvents = (function() {
   function showTypingIndicator(container) {
     // Add temporary typing message
     const typingId = 'typing-' + Date.now();
-    currentTypingId = typingId;
+    ConnectionState.setTyping(typingId);
     
     const messagesArea = container.querySelector('.chat-messages');
     const typingMessage = document.createElement('div');
@@ -414,10 +414,6 @@ window.ChatEvents = (function() {
     }
   });
   
-  let currentTypingId = null;
-  let currentResponseElement = null;
-  let responseTimeout = null;
-  
   function handleAIResponse(text, isComplete) {
     console.log('Content Script: AI Response:', text, 'Complete:', isComplete);
     
@@ -425,27 +421,26 @@ window.ChatEvents = (function() {
     if (!container) return;
     
     // Remove typing indicator on first chunk
-    if (currentTypingId) {
-      removeTypingIndicator(container, currentTypingId);
-      currentTypingId = null;
+    if (ConnectionState.isTyping()) {
+      removeTypingIndicator(container, ConnectionState.getTypingId());
+      ConnectionState.clearTyping();
     }
     
     // Clear any existing response timeout
-    if (responseTimeout) {
-      clearTimeout(responseTimeout);
-      responseTimeout = null;
-    }
+    ConnectionState.clearResponseTimeout();
     
     // If no current response element, create a new AI message
-    if (!currentResponseElement) {
+    if (!ConnectionState.getStreamingElement()) {
       window.ChatUI.addMessage(container, text, 'ai');
-      currentResponseElement = container.querySelector('.message-ai:last-child');
+      const responseElement = container.querySelector('.message-ai:last-child');
+      ConnectionState.setStreaming(!isComplete, responseElement);
       
       if (!isComplete) {
-        currentResponseElement.classList.add('streaming');
+        responseElement.classList.add('streaming');
       }
     } else {
       // Update existing response element (for streaming)
+      const currentResponseElement = ConnectionState.getStreamingElement();
       const currentText = currentResponseElement.textContent + text;
       currentResponseElement.textContent = currentText;
       
@@ -469,27 +464,24 @@ window.ChatEvents = (function() {
       finalizeCurrentResponse();
     } else {
       // Set a timeout to auto-finalize if no completion signal arrives
-      responseTimeout = setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         console.warn('Content Script: Response timeout - auto-finalizing current response');
         finalizeCurrentResponse();
       }, 15000); // 15 second timeout
+      ConnectionState.setResponseTimeout(timeoutId);
     }
   }
   
   function finalizeCurrentResponse() {
+    const currentResponseElement = ConnectionState.getStreamingElement();
     if (currentResponseElement) {
       currentResponseElement.classList.remove('streaming');
       console.log('Content Script: AI response finalized');
     }
     
-    // Reset for next response
-    currentResponseElement = null;
-    
-    // Clear timeout if it exists
-    if (responseTimeout) {
-      clearTimeout(responseTimeout);
-      responseTimeout = null;
-    }
+    // Reset streaming state and clear timeout
+    ConnectionState.setStreaming(false);
+    ConnectionState.clearResponseTimeout();
   }
   
   function handleAIError(error) {
@@ -501,9 +493,9 @@ window.ChatEvents = (function() {
     // Remove typing indicator if present
     const container = document.getElementById('assistant-chat');
     if (container) {
-      if (currentTypingId) {
-        removeTypingIndicator(container, currentTypingId);
-        currentTypingId = null;
+      if (ConnectionState.isTyping()) {
+        removeTypingIndicator(container, ConnectionState.getTypingId());
+        ConnectionState.clearTyping();
       }
       
       window.ChatUI.addMessage(container, `Error: ${error}`, 'ai');
