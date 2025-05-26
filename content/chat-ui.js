@@ -2,20 +2,13 @@
 window.ChatUI = (function() {
     'use strict';
     
-    // Chat states
-    const STATES = {
-      MINIMAL: 'minimal',     // Just input
-      RECENT: 'recent',       // Input + last message
-      FULL: 'full'           // Full chat history
-    };
-    
-    let currentState = STATES.MINIMAL;
-    let messages = [];
+    // Use shared state from ChatState model
+    const { STATES } = ChatState;
     
     function createChatContainer() {
       const container = document.createElement('div');
       container.id = 'assistant-chat';
-      container.setAttribute('data-state', currentState);
+      container.setAttribute('data-state', ChatState.getState());
       container.innerHTML = getChatHTML();
       return container;
     }
@@ -67,10 +60,9 @@ window.ChatUI = (function() {
     }
     
     function setState(container, newState) {
-      if (!STATES[newState.toUpperCase()]) return;
+      if (!ChatState.setState(newState)) return;
       
-      currentState = newState;
-      container.setAttribute('data-state', currentState);
+      container.setAttribute('data-state', ChatState.getState());
       
       const messagesArea = container.querySelector('.chat-messages');
       const recentArea = container.querySelector('.chat-recent');
@@ -82,20 +74,15 @@ window.ChatUI = (function() {
       titlePanel.style.display = 'none';
       
       // Show appropriate area based on state
-      switch (currentState) {
-        case STATES.MINIMAL:
-          // Nothing extra to show
-          break;
-        case STATES.RECENT:
-          recentArea.style.display = 'block';
-          titlePanel.style.display = 'flex';
-          updateRecentArea(container);
-          break;
-        case STATES.FULL:
-          messagesArea.style.display = 'block';
-          titlePanel.style.display = 'flex';
-          break;
+      if (ChatState.isRecentState()) {
+        recentArea.style.display = 'block';
+        titlePanel.style.display = 'flex';
+        updateRecentArea(container);
+      } else if (ChatState.isFullState()) {
+        messagesArea.style.display = 'block';
+        titlePanel.style.display = 'flex';
       }
+      // MINIMAL state shows nothing extra (default)
       
       // Ensure chat stays within viewport bounds after state change
       ensureWithinViewport(container);
@@ -119,7 +106,7 @@ window.ChatUI = (function() {
     
     function updateRecentArea(container) {
       const recentArea = container.querySelector('.chat-recent');
-      const lastMessage = messages[messages.length - 1];
+      const lastMessage = ChatState.getLastMessage();
       
       if (lastMessage && lastMessage.sender === 'ai') {
         recentArea.innerHTML = `
@@ -135,13 +122,13 @@ window.ChatUI = (function() {
     function updateMenuText(container) {
       const menuItem = container.querySelector('[data-action="toggle-full"] .menu-text');
       if (menuItem) {
-        menuItem.textContent = currentState === STATES.FULL ? 'Minimize chat' : 'View all messages';
+        menuItem.textContent = ChatState.isFullState() ? 'Minimize chat' : 'View all messages';
       }
     }
     
     function addMessage(container, text, sender = 'user') {
-      // Store message
-      messages.push({ text, sender, timestamp: Date.now() });
+      // Store message in ChatState
+      ChatState.addMessage(text, sender);
       
       // Add to full messages area
       const messagesArea = container.querySelector('.chat-messages');
@@ -152,12 +139,12 @@ window.ChatUI = (function() {
       messagesArea.scrollTop = messagesArea.scrollHeight;
       
       // Update state based on message
-      if (sender === 'ai' && currentState === STATES.MINIMAL) {
+      if (sender === 'ai' && ChatState.isMinimalState()) {
         setState(container, STATES.RECENT);
       }
       
       // Update recent area if visible
-      if (currentState === STATES.RECENT) {
+      if (ChatState.isRecentState()) {
         updateRecentArea(container);
       }
     }
@@ -173,12 +160,12 @@ window.ChatUI = (function() {
     }
     
     function toggleFullChat(container) {
-      const newState = currentState === STATES.FULL ? STATES.RECENT : STATES.FULL;
+      const newState = ChatState.isFullState() ? STATES.RECENT : STATES.FULL;
       setState(container, newState);
     }
     
     function clearChat(container) {
-      messages = [];
+      ChatState.clearMessages();
       const messagesArea = container.querySelector('.chat-messages');
       messagesArea.innerHTML = '<div class="welcome-message">Hello! I\'m your AI assistant.</div>';
       setState(container, STATES.MINIMAL);
@@ -194,7 +181,7 @@ window.ChatUI = (function() {
       clearChat,
       setState,
       STATES,
-      getCurrentState: () => currentState
+      getCurrentState: () => ChatState.getState()
     };
     
   })();
