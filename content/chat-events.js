@@ -1,4 +1,4 @@
-// Chat Events Module - Handles all user interactions for progressive interface
+// Chat Events Module - Pure event binding and coordination
 window.ChatEvents = (function() {
   'use strict';
   
@@ -25,22 +25,22 @@ window.ChatEvents = (function() {
     });
   }
   
-
-  
   function setupMessageEvents(container) {
     const input = container.querySelector('.chat-input');
     const sendBtn = container.querySelector('.chat-send');
     
     // Send button click
     sendBtn.addEventListener('click', () => {
-      handleSendMessage(container);
+      ChatController.sendMessage(container);
+      updateSendButtonState(container);
     });
     
     // Enter key to send
     input.addEventListener('keypress', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        handleSendMessage(container);
+        ChatController.sendMessage(container);
+        updateSendButtonState(container);
       }
     });
     
@@ -62,6 +62,25 @@ window.ChatEvents = (function() {
     
     // Initial button state
     updateSendButtonState(container);
+  }
+  
+  function handleMenuAction(container, action) {
+    if (action === 'toggle-live') {
+      StreamController.toggleLiveShare(container);
+    } else {
+      ChatController.changeState(container, action);
+    }
+  }
+  
+  function setupMinimizeButton(container) {
+    const minimizeBtn = container.querySelector('.title-panel .minimize-btn');
+    
+    if (minimizeBtn) {
+        minimizeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.ChatUI.setState(container, window.ChatUI.STATES.MINIMAL);
+        });
+    }
   }
   
   function setupDragEvents(container) {
@@ -150,101 +169,6 @@ window.ChatEvents = (function() {
     });
   }
   
-
-  
-  function handleMenuAction(container, action) {
-    switch (action) {
-      case 'toggle-full':
-        window.ChatUI.toggleFullChat(container);
-        break;
-      case 'toggle-live':
-        handleLiveShare(container);
-        break;
-      case 'clear-chat':
-        if (confirm('Clear all messages?')) {
-          window.ChatUI.clearChat(container);
-        }
-        break;
-    }
-  }
-  
-  async function handleLiveShare(container) {
-    const isActive = MenuView.getLiveShareState(container);
-    
-    if (isActive) {
-      // Stop live share
-      window.ScreenCapture.stopScreenShare();
-      chrome.runtime.sendMessage({ type: 'STOP_VIDEO_STREAM' });
-      
-      MenuView.updateLiveShareState(container, false);
-      window.ChatUI.addMessage(container, 'Screen sharing stopped.', 'ai');
-    } else {
-      // Start live share
-      window.ChatUI.addMessage(container, 'Requesting screen share permission...', 'ai');
-      
-      const result = await window.ScreenCapture.startScreenShare();
-      
-      if (result.success) {
-        // Start video streaming to Gemini
-        chrome.runtime.sendMessage({ type: 'START_VIDEO_STREAM' });
-        
-        MenuView.updateLiveShareState(container, true);
-        
-        const stats = window.ScreenCapture.getStats();
-        const message = `Screen sharing started! Capturing ${stats.width}x${stats.height} at ${stats.frameRate}fps`;
-        window.ChatUI.addMessage(container, message, 'ai');
-      } else {
-        window.ChatUI.addMessage(container, `Failed to start screen sharing: ${result.error}`, 'ai');
-      }
-    }
-  }
-
-  function onScreenShareEnded() {
-    const container = document.getElementById('assistant-chat');
-    if (container) {
-      if (MenuView.getLiveShareState(container)) {
-        // Reset UI when user stops sharing via browser (not our button)
-        MenuView.updateLiveShareState(container, false);
-        window.ChatUI.addMessage(container, 'Screen sharing ended.', 'ai');
-        
-        // Stop video streaming to Gemini
-        chrome.runtime.sendMessage({ type: 'STOP_VIDEO_STREAM' });
-      }
-    }
-  }
-  
-  function handleSendMessage(container) {
-    const message = window.ChatUI.getInputValue(container);
-    
-    if (!message) return;
-    
-    // Finalize any existing response and reset state
-    finalizeCurrentResponse();
-    
-    // Add user message to UI
-    window.ChatUI.addMessage(container, message, 'user');
-    window.ChatUI.clearInput(container);
-    updateSendButtonState(container);
-    
-    // Send to background script → Gemini Live API
-    console.log('Content Script: Sending message to background:', message);
-    
-    chrome.runtime.sendMessage({
-      type: 'SEND_TEXT_MESSAGE',
-      text: message
-    }, (response) => {
-      console.log('Content Script: Background response:', response);
-      if (chrome.runtime.lastError) {
-        console.error('Content Script: Runtime error:', chrome.runtime.lastError);
-      }
-    });
-    
-    // Show typing indicator
-    MessageView.showTypingIndicator(container);
-  }
-  
-
-  
   function updateSendButtonState(container) {
     const input = container.querySelector('.chat-input');
     const sendBtn = container.querySelector('.chat-send');
@@ -253,110 +177,28 @@ window.ChatEvents = (function() {
     sendBtn.disabled = !hasText;
     sendBtn.style.opacity = hasText ? '1' : '0.6';
   }
-
-  function setupMinimizeButton(container) {
-    const minimizeBtn = container.querySelector('.title-panel .minimize-btn');
-    
-    if (minimizeBtn) {
-        minimizeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          window.ChatUI.setState(container, window.ChatUI.STATES.MINIMAL);
-        });
-    }
-  }
   
   // Initialize message listener for responses from background script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('Content Script: Received message from background:', message.type);
+    console.log('ChatEvents: Received message from background:', message.type);
     
     switch (message.type) {
       case 'AI_RESPONSE':
-        handleAIResponse(message.text, message.isComplete);
+        ChatController.receiveResponse(message.text, message.isComplete);
         sendResponse({ success: true });
         break;
       case 'AI_ERROR':
-        handleAIError(message.error);
+        ChatController.handleError(message.error);
         sendResponse({ success: true });
         break;
     }
   });
   
-  function handleAIResponse(text, isComplete) {
-    console.log('Content Script: AI Response:', text, 'Complete:', isComplete);
-    
-    const container = document.getElementById('assistant-chat');
-    if (!container) return;
-    
-    // Remove typing indicator on first chunk
-    if (ConnectionState.isTyping()) {
-      MessageView.removeTypingIndicator(container, ConnectionState.getTypingId());
-      ConnectionState.clearTyping();
-    }
-    
-    // Clear any existing response timeout
-    ConnectionState.clearResponseTimeout();
-    
-    // If no current response element, create a new AI message
-    if (!ConnectionState.getStreamingElement()) {
-      if (isComplete) {
-        // Complete message, add directly
-        window.ChatUI.addMessage(container, text, 'ai');
-      } else {
-        // Start streaming message
-        MessageView.startStreamingMessage(container, text);
-      }
-    } else {
-      // Update existing response element (for streaming)
-      const currentResponseElement = ConnectionState.getStreamingElement();
-      const currentText = currentResponseElement.textContent + text;
-      MessageView.updateStreamingMessage(currentResponseElement, currentText);
-      
-      // Update recent area if in recent state
-      MessageView.updateRecentMessage(container, currentText);
-    }
-    
-    // If turn is complete, finalize and reset
-    if (isComplete) {
-      finalizeCurrentResponse();
-    } else {
-      // Set a timeout to auto-finalize if no completion signal arrives
-      const timeoutId = setTimeout(() => {
-        console.warn('Content Script: Response timeout - auto-finalizing current response');
-        finalizeCurrentResponse();
-      }, 15000); // 15 second timeout
-      ConnectionState.setResponseTimeout(timeoutId);
-    }
+  // Stream end handler for external callback
+  function onScreenShareEnded() {
+    StreamController.handleStreamEnd();
   }
   
-  function finalizeCurrentResponse() {
-    const currentResponseElement = ConnectionState.getStreamingElement();
-    if (currentResponseElement) {
-      MessageView.finalizeStreamingMessage(currentResponseElement);
-      console.log('Content Script: AI response finalized');
-    }
-    
-    // Clear timeout
-    ConnectionState.clearResponseTimeout();
-  }
-  
-  function handleAIError(error) {
-    console.error('Content Script: AI Error:', error);
-    
-    // Finalize any current response on error
-    finalizeCurrentResponse();
-    
-    // Remove typing indicator if present
-    const container = document.getElementById('assistant-chat');
-    if (container) {
-      if (ConnectionState.isTyping()) {
-        MessageView.removeTypingIndicator(container, ConnectionState.getTypingId());
-        ConnectionState.clearTyping();
-      }
-      
-      window.ChatUI.addMessage(container, `Error: ${error}`, 'ai');
-    }
-  }
-
   // Public API
   return {
     setupEventListeners,
