@@ -120,7 +120,7 @@ function sendSetupMessage() {
     setup: {
       model: "models/gemini-2.0-flash-exp",
       generationConfig: {
-        responseModalities: ["TEXT"]
+        responseModalities: ["TEXT"] // We want text responses for now
       },
       systemInstruction: {
         parts: [{
@@ -152,7 +152,7 @@ async function handleTextMessage(text, tabId) {
     }
   };
   
-  // Track this message
+  // Track this message (without turn_id in the API payload)
   pendingMessages.set(`msg_${messageId}`, {
     text: text,
     timestamp: Date.now(),
@@ -219,20 +219,39 @@ function handleGeminiResponse(response) {
   
   if (response.serverContent) {
     console.log('AI Assistant: Received server content response');
-    const turnId = response.serverContent.turn_id;
-    if (turnId && pendingMessages.has(turnId)) {
-      const originalMessage = pendingMessages.get(turnId);
-      console.log(`AI Assistant: Response received for message: "${originalMessage.text}"`);
-      pendingMessages.delete(turnId);
-    }
     
-    // Extract text from response
-    if (response.serverContent.parts) {
-      response.serverContent.parts.forEach(part => {
+    // Extract text from response parts
+    let responseText = '';
+    if (response.serverContent.modelTurn && response.serverContent.modelTurn.parts) {
+      response.serverContent.modelTurn.parts.forEach(part => {
         if (part.text) {
+          responseText += part.text;
           console.log('AI Assistant: AI Response Text:', part.text);
         }
       });
+    }
+    
+    // Determine if turn is complete (default to false if not specified)
+    const isComplete = response.serverContent.turnComplete === true;
+    
+    // Send response to content script if we have text
+    if (responseText.trim()) {
+      sendResponseToContentScript(responseText, isComplete);
+    }
+    
+    // Handle turn completion - also send completion signal even if no text
+    if (isComplete) {
+      console.log('AI Assistant: Turn completed');
+      
+      // If no text was sent but turn is complete, send completion signal
+      if (!responseText.trim()) {
+        sendResponseToContentScript('', true);
+      }
+      
+      // Clear any pending message tracking if needed
+      pendingMessages.clear();
+    } else {
+      console.log('AI Assistant: Turn continuing...');
     }
   }
   
@@ -242,14 +261,44 @@ function handleGeminiResponse(response) {
   
   if (response.error) {
     console.error('AI Assistant: Gemini error response:', response.error);
+    sendErrorToContentScript(response.error);
   }
   
-  // Log any unrecognized response types
-  const knownKeys = ['setupComplete', 'serverContent', 'toolCall', 'error'];
+  // Log any unrecognized response types (but don't treat usageMetadata as unknown)
+  const knownKeys = ['setupComplete', 'serverContent', 'toolCall', 'error', 'usageMetadata'];
   const unknownKeys = Object.keys(response).filter(key => !knownKeys.includes(key));
   if (unknownKeys.length > 0) {
     console.log('AI Assistant: Unknown response keys:', unknownKeys, response);
   }
+}
+
+function sendResponseToContentScript(text, isComplete = false) {
+  // Send to all tabs with the extension (in case multiple tabs are open)
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'AI_RESPONSE',
+        text: text,
+        isComplete: isComplete
+      }).catch(error => {
+        // Ignore errors for tabs that don't have content script
+        console.log(`AI Assistant: Could not send to tab ${tab.id} (probably no content script)`);
+      });
+    });
+  });
+}
+
+function sendErrorToContentScript(error) {
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'AI_ERROR',
+        error: error
+      }).catch(error => {
+        // Ignore errors for tabs that don't have content script
+      });
+    });
+  });
 }
 
 function isConnected() {

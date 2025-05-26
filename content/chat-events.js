@@ -327,6 +327,9 @@ window.ChatEvents = (function() {
     
     if (!message) return;
     
+    // Finalize any existing response and reset state
+    finalizeCurrentResponse();
+    
     // Add user message to UI
     window.ChatUI.addMessage(container, message, 'user');
     window.ChatUI.clearInput(container);
@@ -335,17 +338,15 @@ window.ChatEvents = (function() {
     // Send to background script → Gemini Live API
     console.log('Content Script: Sending message to background:', message);
     
-    try {
-      chrome.runtime.sendMessage({
-        type: 'SEND_TEXT_MESSAGE',
-        text: message
-      }, (response) => {
-        console.log('Content Script: Background response:', response);
-      });
-      console.log('Content Script: Message sent to background successfully');
-    } catch (error) {
-      console.error('Content Script: Failed to send message to background:', error);
-    }
+    chrome.runtime.sendMessage({
+      type: 'SEND_TEXT_MESSAGE',
+      text: message
+    }, (response) => {
+      console.log('Content Script: Background response:', response);
+      if (chrome.runtime.lastError) {
+        console.error('Content Script: Runtime error:', chrome.runtime.lastError);
+      }
+    });
     
     // Show typing indicator
     showTypingIndicator(container);
@@ -354,7 +355,15 @@ window.ChatEvents = (function() {
   function showTypingIndicator(container) {
     // Add temporary typing message
     const typingId = 'typing-' + Date.now();
-    window.ChatUI.addMessage(container, 'AI is thinking...', 'ai', typingId);
+    currentTypingId = typingId;
+    
+    const messagesArea = container.querySelector('.chat-messages');
+    const typingMessage = document.createElement('div');
+    typingMessage.className = 'message message-ai typing';
+    typingMessage.setAttribute('data-message-id', typingId);
+    typingMessage.textContent = 'AI is thinking...';
+    messagesArea.appendChild(typingMessage);
+    messagesArea.scrollTop = messagesArea.scrollHeight;
     
     // Remove typing indicator after timeout (fallback)
     setTimeout(() => {
@@ -389,6 +398,118 @@ window.ChatEvents = (function() {
     }
   }
   
+  // Initialize message listener for responses from background script
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log('Content Script: Received message from background:', message.type);
+    
+    switch (message.type) {
+      case 'AI_RESPONSE':
+        handleAIResponse(message.text, message.isComplete);
+        sendResponse({ success: true });
+        break;
+      case 'AI_ERROR':
+        handleAIError(message.error);
+        sendResponse({ success: true });
+        break;
+    }
+  });
+  
+  let currentTypingId = null;
+  let currentResponseElement = null;
+  let responseTimeout = null;
+  
+  function handleAIResponse(text, isComplete) {
+    console.log('Content Script: AI Response:', text, 'Complete:', isComplete);
+    
+    const container = document.getElementById('assistant-chat');
+    if (!container) return;
+    
+    // Remove typing indicator on first chunk
+    if (currentTypingId) {
+      removeTypingIndicator(container, currentTypingId);
+      currentTypingId = null;
+    }
+    
+    // Clear any existing response timeout
+    if (responseTimeout) {
+      clearTimeout(responseTimeout);
+      responseTimeout = null;
+    }
+    
+    // If no current response element, create a new AI message
+    if (!currentResponseElement) {
+      window.ChatUI.addMessage(container, text, 'ai');
+      currentResponseElement = container.querySelector('.message-ai:last-child');
+      
+      if (!isComplete) {
+        currentResponseElement.classList.add('streaming');
+      }
+    } else {
+      // Update existing response element (for streaming)
+      const currentText = currentResponseElement.textContent + text;
+      currentResponseElement.textContent = currentText;
+      
+      // Scroll to bottom
+      const messagesArea = container.querySelector('.chat-messages');
+      if (messagesArea) {
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+      }
+      
+      // Update recent area if in recent state
+      if (container.getAttribute('data-state') === 'recent') {
+        const recentArea = container.querySelector('.chat-recent .recent-message');
+        if (recentArea) {
+          recentArea.textContent = currentText;
+        }
+      }
+    }
+    
+    // If turn is complete, finalize and reset
+    if (isComplete) {
+      finalizeCurrentResponse();
+    } else {
+      // Set a timeout to auto-finalize if no completion signal arrives
+      responseTimeout = setTimeout(() => {
+        console.warn('Content Script: Response timeout - auto-finalizing current response');
+        finalizeCurrentResponse();
+      }, 15000); // 15 second timeout
+    }
+  }
+  
+  function finalizeCurrentResponse() {
+    if (currentResponseElement) {
+      currentResponseElement.classList.remove('streaming');
+      console.log('Content Script: AI response finalized');
+    }
+    
+    // Reset for next response
+    currentResponseElement = null;
+    
+    // Clear timeout if it exists
+    if (responseTimeout) {
+      clearTimeout(responseTimeout);
+      responseTimeout = null;
+    }
+  }
+  
+  function handleAIError(error) {
+    console.error('Content Script: AI Error:', error);
+    
+    // Finalize any current response on error
+    finalizeCurrentResponse();
+    
+    // Remove typing indicator if present
+    const container = document.getElementById('assistant-chat');
+    if (container) {
+      if (currentTypingId) {
+        removeTypingIndicator(container, currentTypingId);
+        currentTypingId = null;
+      }
+      
+      window.ChatUI.addMessage(container, `Error: ${error}`, 'ai');
+    }
+  }
+
   // Public API
   return {
     setupEventListeners,
