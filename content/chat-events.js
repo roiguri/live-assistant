@@ -3,73 +3,16 @@ window.ChatEvents = (function() {
   'use strict';
   
   function setupEventListeners(container) {
-    setupHoverMenuEvents(container);
+    MenuView.setupHoverBehavior(container);
+    setupMenuActions(container);
     setupMessageEvents(container);
     setupMinimizeButton(container);
     setupDragEvents(container);
-    setupClickOutside(container);
+    MenuView.setupClickOutside(container);
   }
   
-  function setupHoverMenuEvents(container) {
-    const inputArea = container.querySelector('.chat-input-area');
-    const menu = container.querySelector('.chat-menu');
+  function setupMenuActions(container) {
     const menuItems = container.querySelectorAll('.menu-item');
-    
-    // Dynamic hover target based on chat state
-    function getHoverTarget() {
-      return container.getAttribute('data-state') === 'full' ? container : inputArea;
-    }
-    
-    // Position menu on hover
-    function showMenu() {
-      positionMenu(container);
-      menu.classList.add('visible');
-    }
-    
-    // Hide menu with delay
-    function hideMenu(relatedTarget) {
-      if (!menu.contains(relatedTarget)) {
-        setTimeout(() => {
-          const hoverTarget = getHoverTarget();
-          if (!menu.matches(':hover') && !hoverTarget.matches(':hover')) {
-            menu.classList.remove('visible');
-          }
-        }, 100);
-      }
-    }
-    
-    // Set up hover events on input area (always active)
-    inputArea.addEventListener('mouseenter', showMenu);
-    inputArea.addEventListener('mouseleave', (e) => hideMenu(e.relatedTarget));
-    
-    // Set up hover events on container (for full state)
-    container.addEventListener('mouseenter', (e) => {
-      if (container.getAttribute('data-state') === 'full') {
-        showMenu();
-      }
-    });
-    
-    container.addEventListener('mouseleave', (e) => {
-      if (container.getAttribute('data-state') === 'full') {
-        hideMenu(e.relatedTarget);
-      }
-    });
-    
-    // Keep menu visible when hovering over menu itself
-    menu.addEventListener('mouseenter', () => {
-      menu.classList.add('visible');
-    });
-    
-    menu.addEventListener('mouseleave', (e) => {
-      const hoverTarget = getHoverTarget();
-      if (!hoverTarget.contains(e.relatedTarget)) {
-        setTimeout(() => {
-          if (!menu.matches(':hover') && !hoverTarget.matches(':hover')) {
-            menu.classList.remove('visible');
-          }
-        }, 100);
-      }
-    });
     
     // Menu item clicks
     menuItems.forEach(item => {
@@ -77,41 +20,12 @@ window.ChatEvents = (function() {
         e.stopPropagation();
         const action = item.getAttribute('data-action');
         handleMenuAction(container, action);
-        menu.classList.remove('visible');
+        MenuView.forceHideMenu(container);
       });
     });
   }
   
-  function positionMenu(container) {
-    const menu = container.querySelector('.chat-menu');
-    const containerRect = container.getBoundingClientRect();
-    
-    // Calculate available space above and below
-    const spaceAbove = containerRect.top;
-    const spaceBelow = window.innerHeight - containerRect.bottom;
-    const menuHeight = 50; // Approximate menu height
-    
-    // Determine if menu should appear above or below
-    const shouldShowBelow = spaceAbove < menuHeight + 20 && spaceBelow > menuHeight + 20;
-    
-    const menuRight = window.innerWidth - containerRect.right;
-    
-    if (shouldShowBelow) {
-      // Position menu below the chat
-      const menuTop = containerRect.bottom + 10;
-      menu.style.right = Math.max(10, menuRight) + 'px';
-      menu.style.top = menuTop + 'px';
-      menu.style.bottom = 'auto';
-      menu.style.left = 'auto';
-    } else {
-      // Position menu above the chat (default)
-      const menuBottom = window.innerHeight - containerRect.top + 10;
-      menu.style.right = Math.max(10, menuRight) + 'px';
-      menu.style.bottom = menuBottom + 'px';
-      menu.style.top = 'auto';
-      menu.style.left = 'auto';
-    }
-  }
+
   
   function setupMessageEvents(container) {
     const input = container.querySelector('.chat-input');
@@ -171,8 +85,7 @@ window.ChatEvents = (function() {
       dragHandle.style.transform = 'scale(1.1)';
       
       // Hide menu during drag
-      const menu = container.querySelector('.chat-menu');
-      menu.classList.remove('visible');
+      MenuView.updateMenuForDrag(container, true);
       
       // Prevent text selection during drag
       document.body.style.userSelect = 'none';
@@ -237,15 +150,7 @@ window.ChatEvents = (function() {
     });
   }
   
-  function setupClickOutside(container) {
-    document.addEventListener('click', (e) => {
-      // Hide menu if clicking outside (for touch devices)
-      if (!container.contains(e.target)) {
-        const menu = container.querySelector('.chat-menu');
-        menu.classList.remove('visible');
-      }
-    });
-  }
+
   
   function handleMenuAction(container, action) {
     switch (action) {
@@ -264,19 +169,14 @@ window.ChatEvents = (function() {
   }
   
   async function handleLiveShare(container) {
-    const menuItem = container.querySelector('[data-action="toggle-live"]');
-    const iconEl = menuItem.querySelector('.menu-icon');
-    const isActive = menuItem.classList.contains('live-active');
+    const isActive = MenuView.getLiveShareState(container);
     
     if (isActive) {
       // Stop live share
       window.ScreenCapture.stopScreenShare();
       chrome.runtime.sendMessage({ type: 'STOP_VIDEO_STREAM' });
       
-      menuItem.classList.remove('live-active');
-      menuItem.classList.add('live-inactive');
-      menuItem.title = 'Start live share';
-      iconEl.textContent = '▶️';
+      MenuView.updateLiveShareState(container, false);
       window.ChatUI.addMessage(container, 'Screen sharing stopped.', 'ai');
     } else {
       // Start live share
@@ -288,10 +188,7 @@ window.ChatEvents = (function() {
         // Start video streaming to Gemini
         chrome.runtime.sendMessage({ type: 'START_VIDEO_STREAM' });
         
-        menuItem.classList.remove('live-inactive');
-        menuItem.classList.add('live-active');
-        menuItem.title = 'Stop live share';
-        iconEl.textContent = '⏸️';
+        MenuView.updateLiveShareState(container, true);
         
         const stats = window.ScreenCapture.getStats();
         const message = `Screen sharing started! Capturing ${stats.width}x${stats.height} at ${stats.frameRate}fps`;
@@ -305,15 +202,9 @@ window.ChatEvents = (function() {
   function onScreenShareEnded() {
     const container = document.getElementById('assistant-chat');
     if (container) {
-      const menuItem = container.querySelector('[data-action="toggle-live"]');
-      const iconEl = menuItem.querySelector('.menu-icon');
-      
-      if (menuItem.classList.contains('live-active')) {
+      if (MenuView.getLiveShareState(container)) {
         // Reset UI when user stops sharing via browser (not our button)
-        menuItem.classList.remove('live-active');
-        menuItem.classList.add('live-inactive');
-        menuItem.title = 'Start live share';
-        iconEl.textContent = '▶️';
+        MenuView.updateLiveShareState(container, false);
         window.ChatUI.addMessage(container, 'Screen sharing ended.', 'ai');
         
         // Stop video streaming to Gemini
