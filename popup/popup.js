@@ -4,19 +4,19 @@
     // TODO: consider adding a clear method to the stored api key
 
     const apiKeyInput = document.getElementById('apiKey');
-    const saveBtn = document.getElementById('saveBtn');
+    const chatVisibleToggle = document.getElementById('chatVisible');
     const testBtn = document.getElementById('testBtn');
     const statusDiv = document.getElementById('status');
     const form = document.getElementById('settingsForm');
     
-    // Load saved API key on popup open
-    loadSavedApiKey();
+    loadSavedSettings();
     
     // Event listeners
     form.addEventListener('submit', handleSave);
     testBtn.addEventListener('click', handleTest);
+    chatVisibleToggle.addEventListener('change', handleToggleChange);
     
-    async function loadSavedApiKey() {
+    async function loadSavedSettings() {
       try {
         const result = await chrome.storage.secure.get(['geminiApiKey']);
         if (result.geminiApiKey) {
@@ -34,6 +34,15 @@
         } catch (err) {
           console.error('Failed to load API key:', err);
         }
+      }
+
+      // Load chat visibility setting (default to true)
+      try {
+        const result = await chrome.storage.local.get(['chatVisible']);
+        chatVisibleToggle.checked = result.chatVisible !== false; // Default to true
+      } catch (error) {
+        console.error('Failed to load chat visibility setting:', error);
+        chatVisibleToggle.checked = true; // Default to visible
       }
     }
     
@@ -71,6 +80,34 @@
       } catch (error) {
         console.error('Save error:', error);
         showStatus('Failed to save API key', 'error');
+      }
+    }
+
+    async function handleToggleChange() {
+      const isVisible = chatVisibleToggle.checked;
+      
+      try {
+        // Save visibility preference
+        await chrome.storage.local.set({ chatVisible: isVisible });
+        
+        // Notify all tabs about visibility change
+        const tabs = await chrome.tabs.query({});
+        tabs.forEach(tab => {
+          chrome.tabs.sendMessage(tab.id, {
+            type: 'TOGGLE_CHAT_VISIBILITY',
+            visible: isVisible
+          }).catch(() => {
+            // Ignore errors for tabs without content script
+          });
+        });
+        
+        showStatus(isVisible ? 'Chat enabled' : 'Chat hidden', 'success');
+        
+      } catch (error) {
+        console.error('Failed to toggle chat visibility:', error);
+        showStatus('Failed to update chat visibility', 'error');
+        // Revert toggle on error
+        chatVisibleToggle.checked = !isVisible;
       }
     }
     

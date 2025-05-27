@@ -209,6 +209,10 @@ window.ChatEvents = (function() {
         updateConnectionUI(container, message.status);
         sendResponse({ success: true });
         break;
+      case 'TOGGLE_CHAT_VISIBILITY':
+        handleChatVisibilityToggle(container, message.visible);
+        sendResponse({ success: true });
+        break;
     }
   });
 
@@ -262,6 +266,18 @@ window.ChatEvents = (function() {
   // Stream end handler for external callback
   function onScreenShareEnded() {
     StreamController.handleStreamEnd();
+  }
+
+  function handleChatVisibilityToggle(container, visible) {
+    console.log('ChatEvents: Toggling chat visibility:', visible);
+    
+    if (visible) {
+      container.style.display = 'block';
+      chrome.storage.local.set({ chatVisible: true });
+    } else {
+      container.style.display = 'none';
+      chrome.storage.local.set({ chatVisible: false });
+    }
   }
   
   // Public API

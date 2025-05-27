@@ -20,6 +20,12 @@
         // Create and inject the chat interface
         const chatContainer = window.ChatUI.createChatContainer();
         document.body.appendChild(chatContainer);
+
+        // Check visibility preference and apply it
+        chrome.storage.local.get(['chatVisible'], (result) => {
+          const isVisible = result.chatVisible !== false; // Default to true
+          chatContainer.style.display = isVisible ? 'block' : 'none';
+        });
         
         // Set up all event listeners
         window.ChatEvents.setupEventListeners(chatContainer);
