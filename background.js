@@ -543,6 +543,8 @@ chrome.commands.onCommand.addListener((command) => {
     toggleChatVisibilityAcrossAllTabs();
   } else if (command === 'focus-chat') {
     focusChatInputAcrossAllTabs();
+  } else if (command === 'take-screenshot') {
+    takeScreenshotAcrossAllTabs();
   }
 });
 
@@ -590,5 +592,38 @@ async function focusChatInputAcrossAllTabs() {
     });
   } catch (error) {
     console.error('Failed to focus chat via keyboard:', error);
+  }
+}
+
+// Add this new function
+async function takeScreenshotAcrossAllTabs() {
+  try {
+    // Get current active tab
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!activeTab) return;
+    
+    // Ensure chat is visible first
+    const result = await chrome.storage.local.get(['chatVisible']);
+    const isVisible = result.chatVisible !== false;
+    
+    if (!isVisible) {
+      await chrome.storage.local.set({ chatVisible: true });
+      // Show chat first
+      chrome.tabs.sendMessage(activeTab.id, {
+        type: 'TOGGLE_CHAT_VISIBILITY',
+        visible: true
+      }).catch(() => {});
+      
+      // Small delay to let chat appear
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
+    // Take screenshot on active tab
+    chrome.tabs.sendMessage(activeTab.id, {
+      type: 'KEYBOARD_SCREENSHOT'
+    }).catch(() => {});
+    
+  } catch (error) {
+    console.error('Failed to take screenshot via keyboard:', error);
   }
 }

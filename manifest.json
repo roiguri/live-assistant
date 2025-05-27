@@ -44,6 +44,13 @@
           "mac": "Command+Shift+F"
         },
         "description": "Focus AI chat input"
+      },
+      "take-screenshot": {
+        "suggested_key": {
+          "default": "Ctrl+Shift+S",
+          "mac": "Command+Shift+S"
+        },
+        "description": "Take screenshot and send to AI"
       }
     },
     

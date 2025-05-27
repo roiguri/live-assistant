@@ -217,6 +217,10 @@ window.ChatEvents = (function() {
         focusChatInput(container);
         sendResponse({ success: true });
         break;
+      case 'KEYBOARD_SCREENSHOT':
+        handleKeyboardScreenshot(container);
+        sendResponse({ success: true });
+        break;
     }
   });
 
@@ -299,6 +303,26 @@ window.ChatEvents = (function() {
       input.focus();
       input.select(); // Optionally select any existing text
     }
+  }
+
+  function handleKeyboardScreenshot(container) {
+    console.log('ChatEvents: Taking screenshot via keyboard');
+    
+    // Ensure chat is visible
+    if (container.style.display === 'none') {
+      container.style.display = 'block';
+    }
+    
+    // Take screenshot using existing function
+    ChatController.takeScreenshot(container);
+    
+    // Focus input after screenshot for immediate interaction
+    setTimeout(() => {
+      const input = container.querySelector('.chat-input');
+      if (input) {
+        input.focus();
+      }
+    }, 300);
   }
   
   // Public API
