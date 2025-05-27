@@ -20,12 +20,7 @@ window.ChatController = (function() {
       chrome.runtime.sendMessage({
         type: 'SEND_TEXT_MESSAGE',
         text: message
-      }, (response) => {
-        console.log('ChatController: Background response:', response);
-        if (chrome.runtime.lastError) {
-          console.error('ChatController: Runtime error:', chrome.runtime.lastError);
-        }
-      });
+      })
       
       // Show typing indicator
       MessageView.showTypingIndicator(container);
