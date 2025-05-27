@@ -41,6 +41,8 @@
 #assistant-chat[data-state="recent"] .chat-recent {
   padding: 8px 12px 6px;
   padding-top: 8px; /* Title panel provides spacing */
+  overflow-y: auto;
+  max-height: 350px;
 }
 
 /* Main container */
@@ -167,6 +169,7 @@
   padding: 12px;
   overflow-y: auto;
   background: #fafafa;
+  max-height: 350px;
   min-height: 0; /* Important for flex child to shrink */
 }
 
