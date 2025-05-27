@@ -219,6 +219,16 @@
   border-bottom-left-radius: 4px;
 }
 
+.message-system {
+  text-align: center;
+  color: #888;
+  font-size: 0.9em;
+  font-style: italic;
+  margin: 8px 0;
+  padding: 4px 8px;
+  background: transparent;
+}
+
 .welcome-message {
   background: #e3f2fd;
   color: #1976d2;
