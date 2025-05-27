@@ -94,6 +94,8 @@ window.ChatView = (function() {
         
         // Ensure chat stays within viewport bounds after state change
         ensureWithinViewport(container);
+
+        MenuView.positionMenu(container);
         
         // Update menu button text
         updateMenuText(container);
