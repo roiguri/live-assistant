@@ -10,6 +10,8 @@ body {
 .header {
     text-align: center;
     margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
 }
 
 .header h2 {
@@ -25,6 +27,42 @@ body {
     font-size: 12px;
 }
 
+/* Tab System */
+.tabs {
+    display: flex;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.tab {
+    flex: 1;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    color: #666;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.tab.active {
+    color: #007AFF;
+    border-bottom: 2px solid #007AFF;
+}
+
+.tab:hover {
+    color: #007AFF;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
 .form-group {
     margin-bottom: 16px;
 }
@@ -36,7 +74,9 @@ label {
     color: #333;
 }
 
-input[type="password"], input[type="text"] {
+input[type="password"], 
+input[type="text"],
+textarea {
     width: 100%;
     padding: 10px 12px;
     border: 1px solid #ddd;
@@ -44,12 +84,31 @@ input[type="password"], input[type="text"] {
     font-size: 13px;
     box-sizing: border-box;
     transition: border-color 0.2s;
+    font-family: inherit;
 }
 
-input:focus {
+textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+input:focus,
+textarea:focus {
     outline: none;
     border-color: #007AFF;
     box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.1);
+}
+
+/* Character Counter */
+.char-counter {
+    text-align: right;
+    font-size: 11px;
+    color: #888;
+    margin-top: 4px;
+}
+
+.char-counter.warning {
+    color: #ff6b35;
 }
 
 /* Toggle Switch Styles */
@@ -124,6 +183,11 @@ button {
 
 .btn-primary:hover {
     background: #0056b3;
+}
+
+.btn-primary:disabled {
+    background: #ccc;
+    cursor: not-allowed;
 }
 
 .btn-secondary {

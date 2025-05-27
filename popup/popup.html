@@ -7,37 +7,69 @@
 <body>
   <div class="header">
     <h2>Live Assistant</h2>
-    <p>Configure your Gemini API settings</p>
+    <p>Configure your AI assistant settings</p>
   </div>
 
-  <form id="settingsForm">
-    <div class="form-group">
-      <label for="chatVisible">Chat Interface</label>
-      <div class="toggle-container">
-        <input type="checkbox" id="chatVisible" class="toggle-checkbox">
-        <label for="chatVisible" class="toggle-label">
-          <span class="toggle-slider"></span>
-        </label>
-        <span class="toggle-text">Show chat on websites</span>
-      </div>
-    </div>
+  <!-- Tab Navigation -->
+  <div class="tabs">
+    <button class="tab active" data-tab="general">General</button>
+    <button class="tab" data-tab="prompts">Prompts</button>
+  </div>
 
+  <!-- General Settings Tab -->
+  <div class="tab-content active" data-content="general">
+    <form id="settingsForm">
+      <div class="form-group">
+        <label for="chatVisible">Chat Interface</label>
+        <div class="toggle-container">
+          <input type="checkbox" id="chatVisible" class="toggle-checkbox">
+          <label for="chatVisible" class="toggle-label">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-text">Show chat on websites</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="apiKey">Gemini API Key</label>
+        <input type="password" id="apiKey" placeholder="Enter your Gemini API key">
+        <div class="help-text">
+          Get your API key from <a href="https://aistudio.google.com/" target="_blank" class="api-link">Google AI Studio</a>
+        </div>
+      </div>
+      
+      <div class="button-group">
+        <button type="button" id="testBtn" class="btn-secondary">Test</button>
+        <button type="submit" id="saveBtn" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Prompts Tab -->
+  <div class="tab-content" data-content="prompts">
     <div class="form-group">
-      <label for="apiKey">Gemini API Key</label>
-      <input type="password" id="apiKey" placeholder="Enter your Gemini API key">
+      <label for="customInstructions">Custom Instructions</label>
+      <textarea 
+        id="customInstructions" 
+        placeholder="Add custom instructions for the AI assistant..."
+        maxlength="2000"
+        rows="4"
+      ></textarea>
+      <div class="char-counter" id="charCounter">0 / 2000</div>
       <div class="help-text">
-        Get your API key from <a href="https://aistudio.google.com/" target="_blank" class="api-link">Google AI Studio</a>
+        These instructions will be added to customize the AI's behavior.
       </div>
     </div>
     
     <div class="button-group">
-      <button type="button" id="testBtn" class="btn-secondary">Test</button>
-      <button type="submit" id="saveBtn" class="btn-primary">Save</button>
+      <button type="button" id="clearInstructions" class="btn-secondary">Clear</button>
+      <button type="button" id="saveInstructions" class="btn-primary">Save</button>
     </div>
-  </form>
+  </div>
   
   <div id="status" class="status" style="display: none;"></div>
   
+  <script src="prompt-manager-popup.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -1,190 +1,328 @@
-// Popup Script - API Key Management
+// Popup Script - API Key Management + Prompt Management
 (function() {
-    'use strict';
-    // TODO: consider adding a clear method to the stored api key
+  'use strict';
 
-    const apiKeyInput = document.getElementById('apiKey');
-    const chatVisibleToggle = document.getElementById('chatVisible');
-    const testBtn = document.getElementById('testBtn');
-    const statusDiv = document.getElementById('status');
-    const form = document.getElementById('settingsForm');
-    
-    loadSavedSettings();
-    
-    // Event listeners
-    form.addEventListener('submit', handleSave);
-    testBtn.addEventListener('click', handleTest);
-    chatVisibleToggle.addEventListener('change', handleToggleChange);
-    
-    async function loadSavedSettings() {
+  // General tab elements (your original code)
+  const apiKeyInput = document.getElementById('apiKey');
+  const chatVisibleToggle = document.getElementById('chatVisible');
+  const testBtn = document.getElementById('testBtn');
+  const statusDiv = document.getElementById('status');
+  const form = document.getElementById('settingsForm');
+  
+  // Prompts tab elements (new)
+  const customInstructionsInput = document.getElementById('customInstructions');
+  const saveInstructionsBtn = document.getElementById('saveInstructions');
+  const clearInstructionsBtn = document.getElementById('clearInstructions');
+  const charCounter = document.getElementById('charCounter');
+  
+  // Tab management (new)
+  const tabs = document.querySelectorAll('.tab');
+  const tabContents = document.querySelectorAll('.tab-content');
+  
+  // Initialize everything
+  loadSavedSettings();
+  setupTabs();
+  setupPromptHandlers();
+  
+  // Event listeners (your original code)
+  form.addEventListener('submit', handleSave);
+  testBtn.addEventListener('click', handleTest);
+  chatVisibleToggle.addEventListener('change', handleToggleChange);
+  
+  // Tab management functions
+  function setupTabs() {
+      tabs.forEach(tab => {
+          tab.addEventListener('click', () => {
+              const targetTab = tab.getAttribute('data-tab');
+              switchTab(targetTab);
+          });
+      });
+  }
+  
+  function switchTab(tabName) {
+      tabs.forEach(tab => {
+          tab.classList.toggle('active', tab.getAttribute('data-tab') === tabName);
+      });
+      
+      tabContents.forEach(content => {
+          content.classList.toggle('active', content.getAttribute('data-content') === tabName);
+      });
+      
+      // Load prompt preview when switching to prompts tab
+      if (tabName === 'prompts') {
+          // Just ensure char counter is updated
+          updateCharCounter();
+      }
+  }
+  
+  function setupPromptHandlers() {
+      if (customInstructionsInput) {
+          customInstructionsInput.addEventListener('input', handleInstructionsInput);
+      }
+      if (saveInstructionsBtn) {
+          saveInstructionsBtn.addEventListener('click', saveInstructions);
+      }
+      if (clearInstructionsBtn) {
+          clearInstructionsBtn.addEventListener('click', clearInstructions);
+      }
+  }
+  
+  // Load settings (your original code + new prompt loading)
+  async function loadSavedSettings() {
       try {
-        const result = await chrome.storage.secure.get(['geminiApiKey']);
-        if (result.geminiApiKey) {
-          apiKeyInput.value = result.geminiApiKey;
-          showStatus('API key loaded', 'success');
-        }
-      } catch (error) {
-        // Fallback to regular storage if secure storage not available
-        try {
-          const result = await chrome.storage.local.get(['geminiApiKey']);
+          const result = await chrome.storage.secure.get(['geminiApiKey']);
           if (result.geminiApiKey) {
-            apiKeyInput.value = result.geminiApiKey;
-            showStatus('API key loaded', 'success');
+              apiKeyInput.value = result.geminiApiKey;
+              showStatus('API key loaded', 'success');
           }
-        } catch (err) {
-          console.error('Failed to load API key:', err);
-        }
+      } catch (error) {
+          // Fallback to regular storage if secure storage not available
+          try {
+              const result = await chrome.storage.local.get(['geminiApiKey']);
+              if (result.geminiApiKey) {
+                  apiKeyInput.value = result.geminiApiKey;
+                  showStatus('API key loaded', 'success');
+              }
+          } catch (err) {
+              console.error('Failed to load API key:', err);
+          }
       }
 
       // Load chat visibility setting (default to true)
       try {
-        const result = await chrome.storage.local.get(['chatVisible']);
-        chatVisibleToggle.checked = result.chatVisible !== false; // Default to true
+          const result = await chrome.storage.local.get(['chatVisible']);
+          chatVisibleToggle.checked = result.chatVisible !== false; // Default to true
       } catch (error) {
-        console.error('Failed to load chat visibility setting:', error);
-        chatVisibleToggle.checked = true; // Default to visible
+          console.error('Failed to load chat visibility setting:', error);
+          chatVisibleToggle.checked = true; // Default to visible
       }
-    }
-    
-    async function handleSave(e) {
+      
+      // Load custom instructions (new)
+      if (PromptManager && customInstructionsInput) {
+          try {
+              const customInstructions = await PromptManager.getCustomInstructions();
+              customInstructionsInput.value = customInstructions;
+              updateCharCounter();
+          } catch (error) {
+              console.error('Failed to load custom instructions:', error);
+          }
+      }
+  }
+  
+  // Save API key (your original code)
+  async function handleSave(e) {
       e.preventDefault();
       
       const apiKey = apiKeyInput.value.trim();
       if (!apiKey) {
-        showStatus('Please enter an API key', 'error');
-        return;
+          showStatus('Please enter an API key', 'error');
+          return;
       }
       
       if (!isValidApiKeyFormat(apiKey)) {
-        showStatus('Invalid API key format', 'error');
-        return;
+          showStatus('Invalid API key format', 'error');
+          return;
       }
       
       try {
-        showStatus('Saving...', 'info');
-        
-        // Try secure storage first, fallback to local storage
-        try {
-          await chrome.storage.secure.set({ geminiApiKey: apiKey });
-        } catch (error) {
-          await chrome.storage.local.set({ geminiApiKey: apiKey });
-        }
-        
-        showStatus('API key saved successfully!', 'success');
-        
-        // Auto-close popup after successful save
-        setTimeout(() => {
-          window.close();
-        }, 1500);
-        
+          showStatus('Saving...', 'info');
+          
+          // Try secure storage first, fallback to local storage
+          try {
+              await chrome.storage.secure.set({ geminiApiKey: apiKey });
+          } catch (error) {
+              await chrome.storage.local.set({ geminiApiKey: apiKey });
+          }
+          
+          showStatus('API key saved successfully!', 'success');
+          
+          // Removed auto-close behavior - keep popup open
+          
       } catch (error) {
-        console.error('Save error:', error);
-        showStatus('Failed to save API key', 'error');
+          console.error('Save error:', error);
+          showStatus('Failed to save API key', 'error');
       }
-    }
+  }
 
-    async function handleToggleChange() {
+  // Chat toggle (your original code)
+  async function handleToggleChange() {
       const isVisible = chatVisibleToggle.checked;
       
       try {
-        // Save visibility preference
-        await chrome.storage.local.set({ chatVisible: isVisible });
-        
-        // Notify all tabs about visibility change
-        const tabs = await chrome.tabs.query({});
-        tabs.forEach(tab => {
-          chrome.tabs.sendMessage(tab.id, {
-            type: 'TOGGLE_CHAT_VISIBILITY',
-            visible: isVisible
-          }).catch(() => {
-            // Ignore errors for tabs without content script
+          // Save visibility preference
+          await chrome.storage.local.set({ chatVisible: isVisible });
+          
+          // Notify all tabs about visibility change
+          const tabs = await chrome.tabs.query({});
+          tabs.forEach(tab => {
+              chrome.tabs.sendMessage(tab.id, {
+                  type: 'TOGGLE_CHAT_VISIBILITY',
+                  visible: isVisible
+              }).catch(() => {
+                  // Ignore errors for tabs without content script
+              });
           });
-        });
-        
-        showStatus(isVisible ? 'Chat enabled' : 'Chat hidden', 'success');
-        
+          
+          showStatus(isVisible ? 'Chat enabled' : 'Chat hidden', 'success');
+          
       } catch (error) {
-        console.error('Failed to toggle chat visibility:', error);
-        showStatus('Failed to update chat visibility', 'error');
-        // Revert toggle on error
-        chatVisibleToggle.checked = !isVisible;
+          console.error('Failed to toggle chat visibility:', error);
+          showStatus('Failed to update chat visibility', 'error');
+          // Revert toggle on error
+          chatVisibleToggle.checked = !isVisible;
       }
-    }
-    
-    async function handleTest(e) {
+  }
+  
+  // Test API key (your original code)
+  async function handleTest(e) {
       e.preventDefault();
       
       const apiKey = apiKeyInput.value.trim();
       if (!apiKey) {
-        showStatus('Please enter an API key to test', 'error');
-        return;
+          showStatus('Please enter an API key to test', 'error');
+          return;
       }
       
       if (!isValidApiKeyFormat(apiKey)) {
-        showStatus('Invalid API key format', 'error');
-        return;
+          showStatus('Invalid API key format', 'error');
+          return;
       }
       
       try {
-        showStatus('Testing API key...', 'info');
-        testBtn.disabled = true;
-        
-        const isValid = await testApiKey(apiKey);
-        
-        if (isValid) {
-          showStatus('✓ API key is valid!', 'success');
-        } else {
-          showStatus('✗ API key is invalid or expired', 'error');
-        }
-        
-      } catch (error) {
-        console.error('Test error:', error);
-        showStatus('Failed to test API key', 'error');
-      } finally {
-        testBtn.disabled = false;
-      }
-    }
-    
-    async function testApiKey(apiKey) {
-      try {
-        const response = await fetch('https://generativelanguage.googleapis.com/v1/models?key=' + apiKey, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
+          showStatus('Testing API key...', 'info');
+          testBtn.disabled = true;
+          
+          const isValid = await testApiKey(apiKey);
+          
+          if (isValid) {
+              showStatus('✓ API key is valid!', 'success');
+          } else {
+              showStatus('✗ API key is invalid or expired', 'error');
           }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          return data.models && data.models.length > 0;
-        }
-        
-        return false;
+          
       } catch (error) {
-        console.error('API test failed:', error);
-        return false;
+          console.error('Test error:', error);
+          showStatus('Failed to test API key', 'error');
+      } finally {
+          testBtn.disabled = false;
       }
-    }
-    
-    function isValidApiKeyFormat(apiKey) {
+  }
+  
+  // API key testing (your original code)
+  async function testApiKey(apiKey) {
+      try {
+          const response = await fetch('https://generativelanguage.googleapis.com/v1/models?key=' + apiKey, {
+              method: 'GET',
+              headers: {
+                  'Content-Type': 'application/json',
+              }
+          });
+          
+          if (response.ok) {
+              const data = await response.json();
+              return data.models && data.models.length > 0;
+          }
+          
+          return false;
+      } catch (error) {
+          console.error('API test failed:', error);
+          return false;
+      }
+  }
+  
+  // API key validation (your original code)
+  function isValidApiKeyFormat(apiKey) {
       // Basic validation for Gemini API key format
       // Typically starts with 'AIza' and is ~39 characters
       return apiKey.length >= 35 && apiKey.startsWith('AIza');
-    }
-    
-    function showStatus(message, type) {
+  }
+  
+  // Status display (your original code)
+  function showStatus(message, type) {
       statusDiv.textContent = message;
       statusDiv.className = `status ${type}`;
       statusDiv.style.display = 'block';
       
       // Auto-hide success/info messages
       if (type === 'success' || type === 'info') {
-        setTimeout(() => {
-          if (statusDiv.textContent === message) {
-            statusDiv.style.display = 'none';
-          }
-        }, 3000);
+          setTimeout(() => {
+              if (statusDiv.textContent === message) {
+                  statusDiv.style.display = 'none';
+              }
+          }, 3000);
       }
-    }
-    
-  })();
+  }
+  
+  // NEW: Prompt management functions
+  function handleInstructionsInput() {
+      updateCharCounter();
+      
+      // Validate instructions
+      if (PromptManager) {
+          const instructions = customInstructionsInput.value;
+          const validation = PromptManager.validateInstructions(instructions);
+          
+          if (!validation.valid) {
+              showStatus(validation.error, 'error');
+              saveInstructionsBtn.disabled = true;
+          } else {
+              saveInstructionsBtn.disabled = false;
+              // Clear error status if input becomes valid
+              if (statusDiv.classList.contains('error')) {
+                  statusDiv.style.display = 'none';
+              }
+          }
+      }
+  }
+  
+  function updateCharCounter() {
+      if (!charCounter || !customInstructionsInput) return;
+      
+      const currentLength = customInstructionsInput.value.length;
+      const maxLength = 2000;
+      
+      charCounter.textContent = `${currentLength} / ${maxLength}`;
+      charCounter.classList.toggle('warning', currentLength > maxLength * 0.9);
+  }
+  
+  async function updatePromptPreview() {
+      // Removed to keep system prompt private
+  }
+  
+  async function saveInstructions() {
+      if (!PromptManager) {
+          showStatus('PromptManager not available', 'error');
+          return;
+      }
+      
+      const instructions = customInstructionsInput.value.trim();
+      
+      try {
+          const result = await PromptManager.setCustomInstructions(instructions);
+          
+          if (result.success) {
+              showStatus('Instructions saved successfully!', 'success');
+              
+              // Notify background script to update system prompt
+              chrome.runtime.sendMessage({ type: 'PROMPT_UPDATED' }).catch(() => {
+                  // Ignore if background script not ready
+              });
+              
+          } else {
+              showStatus(result.error, 'error');
+          }
+      } catch (error) {
+          console.error('Failed to save instructions:', error);
+          showStatus('Failed to save instructions', 'error');
+      }
+  }
+  
+  async function clearInstructions() {
+      if (confirm('Clear all custom instructions?')) {
+          customInstructionsInput.value = '';
+          await saveInstructions();
+          updateCharCounter();
+      }
+  }
+  
+})();
