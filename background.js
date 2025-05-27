@@ -31,6 +31,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'STOP_VIDEO_STREAM':
       stopVideoStreaming(sender.tab.id);
       break;
+    case 'TAKE_SCREENSHOT':
+      handleTabScreenshot(sender.tab.id, sendResponse);
+      return true;
     case 'GET_CONNECTION_STATUS':
       sendResponse(connectionState);
       break;
@@ -206,6 +209,64 @@ function startVideoStreaming(tabId) {
 function stopVideoStreaming(tabId) {
   console.log('AI Assistant: Stopping video streaming');
   connectionState.videoStreaming = false;
+}
+
+async function handleTabScreenshot(tabId, sendResponse) {
+  try {
+    // Capture visible tab
+    const dataUrl = await chrome.tabs.captureVisibleTab(null, {
+      format: 'jpeg',
+      quality: 80
+    });
+    
+    if (!dataUrl) {
+      sendResponse({ success: false, error: 'Failed to capture tab' });
+      return;
+    }
+    
+    // Extract base64 data (remove data:image/jpeg;base64, prefix)
+    const base64Data = dataUrl.split(',')[1];
+    
+    // Send to Gemini via existing WebSocket
+    if (!isConnected()) {
+      sendResponse({ success: false, error: 'Not connected to Gemini' });
+      return;
+    }
+    
+    const messageId = ++messageCounter;
+    const screenshotMessage = {
+      clientContent: {
+        turns: [{
+          role: "user",
+          parts: [{
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: base64Data
+            }
+          }]
+        }],
+        turnComplete: true
+      }
+    };
+    
+    // Track this message
+    pendingMessages.set(`screenshot_${messageId}`, {
+      type: 'screenshot',
+      timestamp: Date.now(),
+      tabId: tabId
+    });
+    
+    console.log(`AI Assistant: [${messageId}] Sending tab screenshot, size:`, base64Data.length);
+    
+    ws.send(JSON.stringify(screenshotMessage));
+    console.log(`AI Assistant: [${messageId}] Screenshot sent successfully`);
+    
+    sendResponse({ success: true });
+    
+  } catch (error) {
+    console.error('AI Assistant: Screenshot capture failed:', error);
+    sendResponse({ success: false, error: error.message });
+  }
 }
 
 function handleGeminiResponse(response) {

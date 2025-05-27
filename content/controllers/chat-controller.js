@@ -119,13 +119,33 @@ window.ChatController = (function() {
       // Clear timeout
       ConnectionState.clearResponseTimeout();
     }
+
+    function takeScreenshot(container) {
+      // Add system message immediately
+      window.ChatUI.addMessage(container, 'Screenshot sent', 'system');
+      
+      // Send screenshot request to background script
+      chrome.runtime.sendMessage({
+        type: 'TAKE_SCREENSHOT'
+      }, (response) => {
+        console.log('ChatController: Screenshot response:', response);
+        if (chrome.runtime.lastError || !response?.success) {
+          console.error('ChatController: Screenshot error:', chrome.runtime.lastError || response?.error);
+          window.ChatUI.addMessage(container, 'Screenshot failed', 'system');
+        } else {
+          // Show typing indicator for AI response
+          MessageView.showTypingIndicator(container);
+        }
+      });
+    }
     
     // Public API
     return {
       sendMessage,
       receiveResponse,
       handleError,
-      changeState
+      changeState,
+      takeScreenshot
     };
     
   })();

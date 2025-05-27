@@ -67,6 +67,8 @@ window.ChatEvents = (function() {
   function handleMenuAction(container, action) {
     if (action === 'toggle-live') {
       StreamController.toggleLiveShare(container);
+    } else if (action === 'take-screenshot') {
+      ChatController.takeScreenshot(container);
     } else {
       ChatController.changeState(container, action);
     }
