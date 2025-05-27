@@ -537,9 +537,12 @@ async function getApiKey() {
   return null;
 }
 
+// Handle command shortcuts
 chrome.commands.onCommand.addListener((command) => {
   if (command === 'toggle-chat') {
     toggleChatVisibilityAcrossAllTabs();
+  } else if (command === 'focus-chat') {
+    focusChatInputAcrossAllTabs();
   }
 });
 
@@ -563,5 +566,29 @@ async function toggleChatVisibilityAcrossAllTabs() {
     });
   } catch (error) {
     console.error('Failed to toggle chat via keyboard:', error);
+  }
+}
+
+async function focusChatInputAcrossAllTabs() {
+  try {
+    // Check if chat is visible first
+    const result = await chrome.storage.local.get(['chatVisible']);
+    const isVisible = result.chatVisible !== false;
+    
+    if (!isVisible) {
+      // If hidden, show it first then focus
+      await chrome.storage.local.set({ chatVisible: true });
+    }
+    
+    // Send focus message to all tabs
+    const tabs = await chrome.tabs.query({});
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, {
+        type: isVisible ? 'FOCUS_CHAT_INPUT' : 'TOGGLE_CHAT_VISIBILITY',
+        visible: true
+      }).catch(() => {});
+    });
+  } catch (error) {
+    console.error('Failed to focus chat via keyboard:', error);
   }
 }

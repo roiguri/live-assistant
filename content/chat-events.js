@@ -213,6 +213,10 @@ window.ChatEvents = (function() {
         handleChatVisibilityToggle(container, message.visible);
         sendResponse({ success: true });
         break;
+      case 'FOCUS_CHAT_INPUT':
+        focusChatInput(container);
+        sendResponse({ success: true });
+        break;
     }
   });
 
@@ -284,6 +288,16 @@ window.ChatEvents = (function() {
     } else {
       container.style.display = 'none';
       chrome.storage.local.set({ chatVisible: false });
+    }
+  }
+
+  function focusChatInput(container) {
+    console.log('ChatEvents: Focusing chat input');
+    
+    const input = container.querySelector('.chat-input');
+    if (input) {
+      input.focus();
+      input.select(); // Optionally select any existing text
     }
   }
   

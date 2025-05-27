@@ -37,6 +37,13 @@
           "mac": "Command+Shift+L"
         },
         "description": "Toggle AI chat visibility"
+      },
+      "focus-chat": {
+        "suggested_key": {
+          "default": "Ctrl+Shift+F",
+          "mac": "Command+Shift+F"
+        },
+        "description": "Focus AI chat input"
       }
     },
     
