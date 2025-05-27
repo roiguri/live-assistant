@@ -7,12 +7,20 @@ window.ChatView = (function() {
         container.id = 'assistant-chat';
         container.setAttribute('data-state', ChatState.getState());
         container.innerHTML = getChatHTML();
+
+        setupReconnectButton(container);
+
         return container;
     }
     
     function getChatHTML() {
         return `
             <div class="chat-main">
+                <div class="connection-status" style="display: none;">
+                    <span class="status-indicator"></span>
+                    <span class="status-text">Connecting...</span>
+                    <button class="reconnect-btn" style="display: none;">Reconnect</button>
+                </div>
                 <button class="minimize-btn" title="Minimize chat" style="display: none;">
                     <span>-</span>
                 </button>
@@ -150,6 +158,63 @@ window.ChatView = (function() {
             container.style.bottom = 'auto';
         }
     }
+
+    function updateConnectionStatus(container, status, canReconnect = false) {
+        const statusElement = container.querySelector('.connection-status');
+        const indicator = statusElement.querySelector('.status-indicator');
+        const text = statusElement.querySelector('.status-text');
+        const reconnectBtn = statusElement.querySelector('.reconnect-btn');
+        
+        // Show/hide status bar
+        if (status === 'connected') {
+            statusElement.style.display = 'none';
+        } else {
+            statusElement.style.display = 'flex';
+        }
+        
+        // Update indicator and text based on status
+        switch (status) {
+            case 'connecting':
+            case 'reconnecting':
+                indicator.className = 'status-indicator connecting';
+                text.textContent = status === 'connecting' ? 'Connecting...' : 'Reconnecting...';
+                reconnectBtn.style.display = 'none';
+                break;
+            case 'connected':
+                indicator.className = 'status-indicator connected';
+                text.textContent = 'Connected';
+                reconnectBtn.style.display = 'none';
+                break;
+            case 'disconnected':
+                indicator.className = 'status-indicator disconnected';
+                text.textContent = 'Disconnected';
+                reconnectBtn.style.display = canReconnect ? 'inline-block' : 'none';
+                break;
+            case 'failed':
+                indicator.className = 'status-indicator failed';
+                text.textContent = 'Connection failed';
+                reconnectBtn.style.display = canReconnect ? 'inline-block' : 'none';
+                break;
+        }
+    }
+    
+    function setupReconnectButton(container) {
+        const reconnectBtn = container.querySelector('.reconnect-btn');
+        
+        reconnectBtn.addEventListener('click', () => {
+            // Disable button during reconnection attempt
+            reconnectBtn.disabled = true;
+            reconnectBtn.textContent = 'Connecting...';
+            
+            chrome.runtime.sendMessage({ type: 'MANUAL_RECONNECT' }, (response) => {
+                // Button will be re-enabled when connection status updates
+                setTimeout(() => {
+                    reconnectBtn.disabled = false;
+                    reconnectBtn.textContent = 'Reconnect';
+                }, 2000);
+            });
+        });
+    }
     
     // Public API - Pure view functions only
     return {
@@ -160,7 +225,8 @@ window.ChatView = (function() {
         getInputValue,
         clearMessagesDOM,
         updateRecentArea,
-        ensureWithinViewport
+        ensureWithinViewport,
+        updateConnectionStatus
     };
     
 })(); 

@@ -5,10 +5,16 @@ let ws = null;
 let connectionState = {
   websocket: 'disconnected', // disconnected, connecting, connected
   videoStreaming: false,
-  lastError: null
+  lastError: null,
+  reconnectAttempts: 0,
+  maxReconnectAttempts: 5,
+  reconnectDelay: 5000
 };
 let messageCounter = 0;
 let pendingMessages = new Map(); // Track sent messages waiting for response
+let reconnectTimeout = null;
+let pingInterval = null;
+let setupComplete = false;
 
 // Initialize connection when extension starts
 chrome.runtime.onStartup.addListener(initializeConnection);
@@ -37,6 +43,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'GET_CONNECTION_STATUS':
       sendResponse(connectionState);
       break;
+    case 'MANUAL_RECONNECT':
+      manualReconnect();
+      sendResponse({ success: true });
+      break;
   }
 });
 
@@ -49,6 +59,7 @@ async function initializeConnection() {
     if (!apiKey) {
       console.error('AI Assistant: No API key found');
       connectionState.lastError = 'No API key configured';
+      connectionState.websocket = 'failed';
       return;
     }
     
@@ -58,14 +69,18 @@ async function initializeConnection() {
   } catch (error) {
     console.error('AI Assistant: Failed to initialize connection:', error);
     connectionState.lastError = error.message;
+    connectionState.websocket = 'failed';
   }
 }
 
 function connectToGemini(apiKey) {
+  connectionState.websocket = 'failed';
+
   const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
   
   console.log('AI Assistant: Connecting to Gemini Live API...');
-  connectionState.websocket = 'connecting';
+  connectionState.websocket = connectionState.reconnectAttempts > 0 ? 'reconnecting' : 'connecting';
+  setupComplete = false;
   
   ws = new WebSocket(wsUrl);
   
@@ -73,9 +88,12 @@ function connectToGemini(apiKey) {
     console.log('AI Assistant: WebSocket connected successfully');
     connectionState.websocket = 'connected';
     connectionState.lastError = null;
+    connectionState.reconnectAttempts = 0;
+    connectionState.reconnectDelay = 5000;
     
     // Send setup message
-    sendSetupMessage();
+    sendSetupMessage();    
+    startHealthMonitoring();
   };
   
   ws.onmessage = function(event) {
@@ -106,16 +124,129 @@ function connectToGemini(apiKey) {
   
   ws.onclose = function(event) {
     console.log('AI Assistant: WebSocket closed:', event.code, event.reason);
+    cleanupHealthMonitoring();
+
+    // Determine if this was an expected closure or error
+    const wasConnected = connectionState.websocket === 'connected';
     connectionState.websocket = 'disconnected';
     
-    // Attempt reconnection after delay
-    setTimeout(() => {
-      if (connectionState.websocket === 'disconnected') {
-        console.log('AI Assistant: Attempting to reconnect...');
-        initializeConnection();
-      }
-    }, 5000);
+    // Handle reconnection logic
+    if (shouldAttemptReconnection(event.code)) {
+      attemptReconnection();
+    } else {
+      console.log('AI Assistant: Connection closed permanently');
+      connectionState.websocket = 'failed';
+      connectionState.lastError = `Connection failed: ${event.reason || 'Unknown reason'}`;
+      notifyContentScriptOfConnectionLoss();
+    }
   };
+}
+
+function shouldAttemptReconnection(closeCode) {
+  // Don't reconnect on certain close codes
+  const permanentCloseCodes = [1000, 1001, 4001, 4003]; // Normal closure, authentication issues
+  
+  return !permanentCloseCodes.includes(closeCode) && 
+         connectionState.reconnectAttempts < connectionState.maxReconnectAttempts;
+}
+
+function attemptReconnection() {
+  if (connectionState.reconnectAttempts >= connectionState.maxReconnectAttempts) {
+    console.error('AI Assistant: Max reconnection attempts reached');
+    connectionState.websocket = 'failed';
+    connectionState.lastError = 'Max reconnection attempts exceeded';
+    notifyContentScriptOfConnectionLoss();
+    return;
+  }
+  
+  connectionState.reconnectAttempts++;
+  console.log(`AI Assistant: Attempting reconnection ${connectionState.reconnectAttempts}/${connectionState.maxReconnectAttempts} in ${connectionState.reconnectDelay}ms`);
+  
+  // Clear any existing timeout
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+  }
+  
+  reconnectTimeout = setTimeout(async () => {
+    try {
+      const apiKey = await getApiKey();
+      if (apiKey) {
+        connectToGemini(apiKey);
+      } else {
+        connectionState.websocket = 'failed';
+        connectionState.lastError = 'No API key available for reconnection';
+      }
+    } catch (error) {
+      console.error('AI Assistant: Reconnection failed:', error);
+      connectionState.lastError = error.message;
+      
+      // Try again with longer delay
+      connectionState.reconnectDelay = Math.min(connectionState.reconnectDelay * 2, 60000); // Max 60 seconds
+      attemptReconnection();
+    }
+  }, connectionState.reconnectDelay);
+  
+  // Exponential backoff
+  connectionState.reconnectDelay = Math.min(connectionState.reconnectDelay * 1.5, 60000);
+}
+
+function manualReconnect() {
+  console.log('AI Assistant: Manual reconnection requested');
+  
+  // Reset reconnection state
+  connectionState.reconnectAttempts = 0;
+  connectionState.reconnectDelay = 5000;
+  connectionState.lastError = null;
+  
+  // Clear any existing timeout
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+    reconnectTimeout = null;
+  }
+  
+  // Attempt connection
+  initializeConnection();
+}
+
+function startHealthMonitoring() {
+  // Send ping every 30 seconds to keep connection alive
+  pingInterval = setInterval(() => {
+    if (isConnected() && setupComplete) {
+      try {
+        // Send a simple setup check (no-op that tests connection)
+        const pingMessage = { clientContent: { turns: [] } };
+        ws.send(JSON.stringify(pingMessage));
+        console.log('AI Assistant: Connection health ping sent');
+      } catch (error) {
+        console.error('AI Assistant: Health ping failed:', error);
+        // Connection might be dead - let normal error handling take over
+      }
+    }
+  }, 30000);
+}
+
+function cleanupHealthMonitoring() {
+  if (pingInterval) {
+    clearInterval(pingInterval);
+    pingInterval = null;
+  }
+}
+
+function cleanupConnection() {
+  if (ws) {
+    ws.onopen = null;
+    ws.onmessage = null;
+    ws.onerror = null;
+    ws.onclose = null;
+    
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.close();
+    }
+    ws = null;
+  }
+  
+  cleanupHealthMonitoring();
+  setupComplete = false;
 }
 
 function sendSetupMessage() {
@@ -137,10 +268,30 @@ function sendSetupMessage() {
   ws.send(JSON.stringify(setupMessage));
 }
 
+function notifyContentScriptOfConnectionLoss() {
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'CONNECTION_LOST',
+        canReconnect: true
+      }).catch(() => {
+        // Ignore errors for tabs without content script
+      });
+    });
+  });
+}
+
 async function handleTextMessage(text, tabId) {
   if (!isConnected()) {
     console.error('AI Assistant: Cannot send text - not connected');
     console.log('AI Assistant: Connection state:', connectionState);
+    
+    // Notify user of connection issue
+    chrome.tabs.sendMessage(tabId, {
+      type: 'AI_ERROR',
+      error: 'Not connected to AI service. Please check your connection.'
+    }).catch(() => {});
+    
     return;
   }
   
@@ -155,7 +306,6 @@ async function handleTextMessage(text, tabId) {
     }
   };
   
-  // Track this message (without turn_id in the API payload)
   pendingMessages.set(`msg_${messageId}`, {
     text: text,
     timestamp: Date.now(),
@@ -163,16 +313,19 @@ async function handleTextMessage(text, tabId) {
   });
   
   console.log(`AI Assistant: [${messageId}] Sending text message:`, text);
-  console.log(`AI Assistant: [${messageId}] Full payload:`, JSON.stringify(textMessage, null, 2));
-  console.log(`AI Assistant: [${messageId}] WebSocket state:`, ws.readyState);
-  console.log(`AI Assistant: [${messageId}] Pending messages:`, pendingMessages.size);
-  
+
   try {
     ws.send(JSON.stringify(textMessage));
     console.log(`AI Assistant: [${messageId}] Message sent successfully`);
   } catch (error) {
     console.error(`AI Assistant: [${messageId}] Failed to send message:`, error);
     pendingMessages.delete(`msg_${messageId}`);
+
+    // Notify user of send failure
+    chrome.tabs.sendMessage(tabId, {
+      type: 'AI_ERROR',
+      error: 'Failed to send message. Connection may be lost.'
+    }).catch(() => {});
   }
   
   // Timeout check for stuck messages
@@ -212,8 +365,12 @@ function stopVideoStreaming(tabId) {
 }
 
 async function handleTabScreenshot(tabId, sendResponse) {
+  if (!isConnected()) {
+    sendResponse({ success: false, error: 'Not connected to AI service' });
+    return;
+  }
+  
   try {
-    // Capture visible tab
     const dataUrl = await chrome.tabs.captureVisibleTab(null, {
       format: 'jpeg',
       quality: 80
@@ -224,15 +381,7 @@ async function handleTabScreenshot(tabId, sendResponse) {
       return;
     }
     
-    // Extract base64 data (remove data:image/jpeg;base64, prefix)
     const base64Data = dataUrl.split(',')[1];
-    
-    // Send to Gemini via existing WebSocket
-    if (!isConnected()) {
-      sendResponse({ success: false, error: 'Not connected to Gemini' });
-      return;
-    }
-    
     const messageId = ++messageCounter;
     const screenshotMessage = {
       clientContent: {
@@ -249,7 +398,6 @@ async function handleTabScreenshot(tabId, sendResponse) {
       }
     };
     
-    // Track this message
     pendingMessages.set(`screenshot_${messageId}`, {
       type: 'screenshot',
       timestamp: Date.now(),
@@ -275,6 +423,7 @@ function handleGeminiResponse(response) {
   // Check for different response types
   if (response.setupComplete) {
     console.log('AI Assistant: Setup completed successfully');
+    setupComplete = true;
     return;
   }
   

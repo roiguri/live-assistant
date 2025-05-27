@@ -9,6 +9,7 @@ window.ChatEvents = (function() {
     setupMinimizeButton(container);
     setupDragEvents(container);
     MenuView.setupClickOutside(container);
+    setupConnectionMonitoring(container);
   }
   
   function setupMenuActions(container) {
@@ -184,6 +185,12 @@ window.ChatEvents = (function() {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('ChatEvents: Received message from background:', message.type);
     
+    const container = document.getElementById('assistant-chat');
+    if (!container) {
+      sendResponse({ success: false, error: 'Chat container not found' });
+      return;
+    }
+
     switch (message.type) {
       case 'AI_RESPONSE':
         ChatController.receiveResponse(message.text, message.isComplete);
@@ -193,8 +200,64 @@ window.ChatEvents = (function() {
         ChatController.handleError(message.error);
         sendResponse({ success: true });
         break;
+      case 'CONNECTION_LOST':
+        handleConnectionLost(container, message.canReconnect);
+        sendResponse({ success: true });
+        break;
+        
+      case 'CONNECTION_STATUS':
+        updateConnectionUI(container, message.status);
+        sendResponse({ success: true });
+        break;
     }
   });
+
+  function handleConnectionLost(container, canReconnect) {
+    console.log('ChatEvents: Connection lost, canReconnect:', canReconnect);
+    
+    // Update connection status UI
+    if (window.ChatView && window.ChatView.updateConnectionStatus) {
+      window.ChatView.updateConnectionStatus(container, 'failed', canReconnect);
+    }
+    
+    // Add system message to chat
+    window.ChatUI.addMessage(container, 'Connection lost. Please check your internet connection.', 'system');
+    
+    if (canReconnect) {
+      window.ChatUI.addMessage(container, 'Click "Reconnect" to try again.', 'system');
+    }
+  }
+
+  function updateConnectionUI(container, status) {
+    if (window.ChatView && window.ChatView.updateConnectionStatus) {
+      window.ChatView.updateConnectionStatus(container, status, status === 'failed' || status === 'disconnected');
+    }
+  }
+
+  function setupConnectionMonitoring(container) {
+    // Check connection status every 10 seconds
+    setInterval(() => {
+      chrome.runtime.sendMessage({ type: 'GET_CONNECTION_STATUS' }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('Failed to get connection status:', chrome.runtime.lastError);
+          return;
+        }
+        
+        if (response && response.websocket) {
+          updateConnectionUI(container, response.websocket);
+        }
+      });
+    }, 10000);
+    
+    // Initial connection status check
+    setTimeout(() => {
+      chrome.runtime.sendMessage({ type: 'GET_CONNECTION_STATUS' }, (response) => {
+        if (response && response.websocket) {
+          updateConnectionUI(container, response.websocket);
+        }
+      });
+    }, 1000);
+  }
   
   // Stream end handler for external callback
   function onScreenShareEnded() {
