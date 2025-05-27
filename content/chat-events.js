@@ -274,6 +274,13 @@ window.ChatEvents = (function() {
     if (visible) {
       container.style.display = 'block';
       chrome.storage.local.set({ chatVisible: true });
+
+      setTimeout(() => {
+        const input = container.querySelector('.chat-input');
+        if (input) {
+          input.focus();
+        }
+      }, 100);
     } else {
       container.style.display = 'none';
       chrome.storage.local.set({ chatVisible: false });

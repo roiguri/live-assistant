@@ -536,3 +536,32 @@ async function getApiKey() {
   
   return null;
 }
+
+chrome.commands.onCommand.addListener((command) => {
+  if (command === 'toggle-chat') {
+    toggleChatVisibilityAcrossAllTabs();
+  }
+});
+
+async function toggleChatVisibilityAcrossAllTabs() {
+  try {
+    // Get current visibility state
+    const result = await chrome.storage.local.get(['chatVisible']);
+    const currentlyVisible = result.chatVisible !== false;
+    const newVisibility = !currentlyVisible;
+    
+    // Save new state
+    await chrome.storage.local.set({ chatVisible: newVisibility });
+    
+    // Notify all tabs
+    const tabs = await chrome.tabs.query({});
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'TOGGLE_CHAT_VISIBILITY',
+        visible: newVisibility
+      }).catch(() => {});
+    });
+  } catch (error) {
+    console.error('Failed to toggle chat via keyboard:', error);
+  }
+}

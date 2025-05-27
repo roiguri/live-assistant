@@ -29,6 +29,16 @@
       "default_popup": "popup/popup.html",
       "default_title": "Live Assistant Settings"
     },
+
+    "commands": {
+      "toggle-chat": {
+        "suggested_key": {
+          "default": "Ctrl+Shift+L",
+          "mac": "Command+Shift+L"
+        },
+        "description": "Toggle AI chat visibility"
+      }
+    },
     
     "content_scripts": [{
       "matches": ["<all_urls>"],
