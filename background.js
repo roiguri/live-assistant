@@ -47,6 +47,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       manualReconnect();
       sendResponse({ success: true });
       break;
+    case 'PROMPT_UPDATED':
+      handlePromptUpdate();
+      sendResponse({ success: true });
+      break;
   }
 });
 
@@ -249,7 +253,8 @@ function cleanupConnection() {
   setupComplete = false;
 }
 
-function sendSetupMessage() {
+async function sendSetupMessage() {
+  const systemPrompt = await getCombinedSystemPrompt();
   const setupMessage = {
     setup: {
       model: "models/gemini-2.0-flash-exp",
@@ -258,7 +263,7 @@ function sendSetupMessage() {
       },
       systemInstruction: {
         parts: [{
-          text: "You are a helpful AI assistant watching the user's screen. Provide context-aware assistance based on what you see and the conversation. Be concise but helpful."
+          text: systemPrompt
         }]
       }
     }
@@ -626,4 +631,57 @@ async function takeScreenshotAcrossAllTabs() {
   } catch (error) {
     console.error('Failed to take screenshot via keyboard:', error);
   }
+}
+
+function handlePromptUpdate() {
+  console.log('AI Assistant: Custom prompt updated, reconnecting...');
+  
+  // Close existing connection to apply new prompt
+  if (ws) {
+    cleanupConnection();
+  }
+  
+  // Clear reconnection state
+  connectionState.reconnectAttempts = 0;
+  connectionState.reconnectDelay = 5000;
+  connectionState.lastError = null;
+  
+  // Reconnect with new prompt
+  setTimeout(() => {
+    initializeConnection();
+  }, 1000);
+}
+
+async function getCombinedSystemPrompt() {
+  try {
+    const defaultPrompt = getDefaultSystemPrompt();
+    
+    // Load custom instructions from storage (same key as popup PromptManager)
+    const result = await chrome.storage.local.get(['customInstructions']);
+    const customInstructions = result.customInstructions || '';
+    
+    if (!customInstructions.trim()) {
+      return defaultPrompt;
+    }
+    
+    return `${defaultPrompt}\n\nUser Instructions:\n${customInstructions}`;
+    
+  } catch (error) {
+    console.error('AI Assistant: Failed to get combined prompt:', error);
+    return getDefaultSystemPrompt();
+  }
+}
+
+function getDefaultSystemPrompt() {
+  return `You are a helpful AI assistant.
+
+Key capabilities:
+- Analyze screenshots given and provide relevant insights
+- Answer questions from user.
+
+Guidelines:
+- Be concise but helpful in your responses
+- Reference specific elements you see on screenshots when relevant
+- Ask clarifying questions if the user's intent is unclear
+- Respect user privacy and avoid commenting on sensitive information`;
 }
