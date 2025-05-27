@@ -20,9 +20,11 @@ window.ChatView = (function() {
                     <button class="menu-item" data-action="toggle-full" title="Toggle chat history">
                         <span class="menu-icon">💬</span>
                     </button>
-                    <button class="menu-item live-inactive" data-action="toggle-live" title="Start live share">
+                    <!-- TODO: enable when live share is fully implemented
+                    <button disable class="menu-item live-inactive" data-action="toggle-live" title="Start live share">
                         <span class="menu-icon">▶️</span>
-                    </button>
+                    </button> 
+                    -->
                     <button class="menu-item" data-action="clear-chat" title="Clear chat">
                         <span class="menu-icon">🗑️</span>
                     </button>
