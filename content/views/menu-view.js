@@ -4,46 +4,66 @@ window.MenuView = (function() {
     
     function setupHoverBehavior(container) {
         const inputArea = container.querySelector('.chat-input-area');
+        const recentArea = container.querySelector('.chat-recent');
+        const titlePanel = container.querySelector('.title-panel');
         const menu = container.querySelector('.chat-menu');
         
-        // Dynamic hover target based on chat state
-        function getHoverTarget() {
-            return container.getAttribute('data-state') === 'full' ? container : inputArea;
+        function shouldShowMenu(state) {
+            return state === 'full' || state === 'recent' || state === 'minimal';
         }
         
-        // Set up hover events on input area (always active)
-        inputArea.addEventListener('mouseenter', () => showMenu(container));
-        inputArea.addEventListener('mouseleave', (e) => hideMenu(container, e.relatedTarget));
+        function getActiveHoverAreas(state) {
+            switch (state) {
+                case 'full': return [container];
+                case 'recent': return [inputArea, recentArea, titlePanel];
+                case 'minimal': return [inputArea];
+                default: return [inputArea];
+            }
+        }
         
-        // Set up hover events on container (for full state)
-        container.addEventListener('mouseenter', (e) => {
-            if (container.getAttribute('data-state') === 'full') {
+        function isHoveringOverActiveArea(state) {
+            const areas = getActiveHoverAreas(state);
+            return areas.some(area => area.matches(':hover'));
+        }
+        
+        function handleMouseEnter() {
+            const state = container.getAttribute('data-state');
+            if (shouldShowMenu(state)) {
                 showMenu(container);
             }
-        });
+        }
         
-        container.addEventListener('mouseleave', (e) => {
-            if (container.getAttribute('data-state') === 'full') {
+        function handleMouseLeave(e) {
+            const state = container.getAttribute('data-state');
+            if (!menu.contains(e.relatedTarget)) {
                 hideMenu(container, e.relatedTarget);
             }
+        }
+        
+        // Set up event listeners for all possible hover areas
+        [inputArea, recentArea, container].forEach(area => {
+            area.addEventListener('mouseenter', handleMouseEnter);
+            area.addEventListener('mouseleave', handleMouseLeave);
         });
         
-        // Keep menu visible when hovering over menu itself
+        // Menu-specific hover handling
         menu.addEventListener('mouseenter', () => {
             menu.classList.add('visible');
         });
         
         menu.addEventListener('mouseleave', (e) => {
-            const hoverTarget = getHoverTarget();
-            if (!hoverTarget.contains(e.relatedTarget)) {
+            const state = container.getAttribute('data-state');
+            const activeAreas = getActiveHoverAreas(state);
+            
+            if (!activeAreas.some(area => area.contains(e.relatedTarget))) {
                 setTimeout(() => {
-                    if (!menu.matches(':hover') && !hoverTarget.matches(':hover')) {
+                    if (!menu.matches(':hover') && !isHoveringOverActiveArea(state)) {
                         menu.classList.remove('visible');
                     }
                 }, 100);
             }
         });
-    }
+     }
     
     function setupClickOutside(container) {
         document.addEventListener('click', (e) => {
