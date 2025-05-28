@@ -1,4 +1,4 @@
-// Connection State Model - Manages connection status and streaming state
+// Connection State Model - UI-specific state only (typing, streaming, timeouts)
 window.ConnectionState = (function() {
     'use strict';
     
@@ -6,10 +6,9 @@ window.ConnectionState = (function() {
     let currentResponseElement = null;
     let responseTimeout = null;
     let isStreaming = false;
-    let isConnected = true;
     let observers = [];
     
-    // Observer pattern for connection state changes
+    // Observer pattern for UI state changes
     function addObserver(callback) {
         observers.push(callback);
     }
@@ -71,17 +70,6 @@ window.ConnectionState = (function() {
         }
     }
     
-    function setConnected(connected) {
-        if (isConnected !== connected) {
-            isConnected = connected;
-            notifyObservers('connection-changed', { isConnected });
-        }
-    }
-    
-    function getConnectionStatus() {
-        return isConnected;
-    }
-    
     function reset() {
         clearTyping();
         setStreaming(false);
@@ -98,10 +86,6 @@ window.ConnectionState = (function() {
         return isCurrentlyStreaming();
     }
     
-    function isOnline() {
-        return getConnectionStatus();
-    }
-    
     // Public API
     return {
         setTyping,
@@ -115,11 +99,8 @@ window.ConnectionState = (function() {
         hasActiveStream,
         setResponseTimeout,
         clearResponseTimeout,
-        setConnected,
-        getConnectionStatus,
-        isOnline,
         reset,
         addObserver
     };
     
-})(); 
+})();
