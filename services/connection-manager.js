@@ -14,20 +14,7 @@ globalThis.ConnectionManager = class ConnectionManager {
       this.pingInterval = null;
       this.setupComplete = false;
       this.geminiClient = new globalThis.GeminiClient();
-    }
-  
-    async _getApiKey() {
-      try {
-        let result = await chrome.storage.secure.get(['geminiApiKey']);
-        if (result.geminiApiKey) return result.geminiApiKey;
-      } catch (error) { /* Fall through */ }
-      try {
-        let result = await chrome.storage.local.get(['geminiApiKey']);
-        if (result.geminiApiKey) return result.geminiApiKey;
-      } catch (err) {
-        console.error('AI Assistant: Failed to get API key (CM):', err);
-      }
-      return null;
+      this.apiService = new globalThis.ApiService();
     }
   
     _getDefaultSystemPrompt() {
@@ -250,10 +237,10 @@ Guidelines:
   
     attemptReconnection() {
       if (this.connectionState.reconnectAttempts >= this.connectionState.maxReconnectAttempts) {
-        this.connectionState.websocket = 'failed';
-        this.connectionState.lastError = 'Max reconnection attempts exceeded';
-        this.notifyContentScriptOfConnectionLoss(); 
-        return;
+          this.connectionState.websocket = 'failed';
+          this.connectionState.lastError = 'Max reconnection attempts exceeded';
+          this.notifyContentScriptOfConnectionLoss();
+          return;
       }
       
       this.connectionState.reconnectAttempts++;
@@ -262,24 +249,24 @@ Guidelines:
       if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
       
       this.reconnectTimeout = setTimeout(async () => {
-        try {
-          const apiKey = await this._getApiKey();
-          if (apiKey) {
-            this.connectToGemini(apiKey); 
-          } else {
-            this.connectionState.websocket = 'failed';
-            this.connectionState.lastError = 'No API key for reconnection';
-            this.notifyContentScriptOfConnectionLoss(); 
+          try {
+              const apiKey = await this.apiService.getApiKey();
+              if (apiKey) {
+                  this.connectToGemini(apiKey);
+              } else {
+                  this.connectionState.websocket = 'failed';
+                  this.connectionState.lastError = 'No API key for reconnection';
+                  this.notifyContentScriptOfConnectionLoss();
+              }
+          } catch (error) {
+              this.connectionState.lastError = error.message;
+              if(this.shouldAttemptReconnection(null)){
+                  this.attemptReconnection();
+              } else {
+                  this.connectionState.websocket = 'failed';
+                  this.notifyContentScriptOfConnectionLoss();
+              }
           }
-        } catch (error) {
-          this.connectionState.lastError = error.message;
-          if(this.shouldAttemptReconnection(null)){ 
-              this.attemptReconnection(); 
-          } else {
-              this.connectionState.websocket = 'failed';
-              this.notifyContentScriptOfConnectionLoss();
-          }
-        }
       }, delay);
     }
     
@@ -308,18 +295,18 @@ Guidelines:
           return;
       }
       try {
-        const apiKey = await this._getApiKey(); 
-        if (!apiKey) {
-          this.connectionState.lastError = 'No API key configured';
-          this.connectionState.websocket = 'failed';
-          this.notifyContentScriptOfConnectionLoss(); 
-          return;
-        }
-        this.connectToGemini(apiKey);
+          const apiKey = await this.apiService.getApiKey();
+          if (!apiKey) {
+              this.connectionState.lastError = 'No API key configured';
+              this.connectionState.websocket = 'failed';
+              this.notifyContentScriptOfConnectionLoss();
+              return;
+          }
+          this.connectToGemini(apiKey);
       } catch (error) {
-        this.connectionState.lastError = error.message;
-        this.connectionState.websocket = 'failed';
-        this.notifyContentScriptOfConnectionLoss(); 
+          this.connectionState.lastError = error.message;
+          this.connectionState.websocket = 'failed';
+          this.notifyContentScriptOfConnectionLoss();
       }
     }
   

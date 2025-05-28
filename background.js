@@ -1,10 +1,12 @@
 // Background Script - Gemini Live API Connection Handler
+importScripts('services/api-service.js');
 importScripts('services/gemini-client.js');
 importScripts('services/connection-manager.js');
 importScripts('services/message-router.js');
 
 console.log('AI Assistant: Background script loaded');
 
+const apiService = new globalThis.ApiService();
 const connectionManager = new globalThis.ConnectionManager();
 const messageRouter = new globalThis.MessageRouter();
 
