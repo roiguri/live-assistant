@@ -67,8 +67,7 @@
         "content/chat-ui.js",
         "content/chat-events.js", 
         "content/screen-capture.js",
-        "content.js",
-        "services/connection-manager.js"
+        "content.js"
       ],
       "css": ["styles/content.css"]
     }]
