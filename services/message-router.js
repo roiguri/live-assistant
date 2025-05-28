@@ -102,8 +102,12 @@ globalThis.MessageRouter = class MessageRouter {
 
     // Send message to specific tab
     sendToTab(tabId, message, callback = null) {
-        chrome.tabs.sendMessage(tabId, message, callback || (() => {})).catch(() => {
-            // Ignore errors for tabs without content script
-        });
+        if (callback) {
+            chrome.tabs.sendMessage(tabId, message, callback);
+        } else {
+            chrome.tabs.sendMessage(tabId, message).catch(() => {
+                // Ignore errors for tabs without content script
+            });
+        }
     }
 };
