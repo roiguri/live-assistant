@@ -1,4 +1,4 @@
-// Connection Manager
+// Connection Manager - Handles the connection to the Gemini API and the communication with the content script.
 globalThis.ConnectionManager = class ConnectionManager {
     constructor() {
       this.ws = null;
@@ -10,11 +10,10 @@ globalThis.ConnectionManager = class ConnectionManager {
         maxReconnectAttempts: 5,
         reconnectDelay: 5000
       };
-      this.messageCounter = 0;
-      this.pendingMessages = new Map();
       this.reconnectTimeout = null;
       this.pingInterval = null;
       this.setupComplete = false;
+      this.geminiClient = new globalThis.GeminiClient();
     }
   
     async _getApiKey() {
@@ -59,68 +58,71 @@ Guidelines:
   
     async sendSetupMessage() {
       const systemPrompt = await this._getCombinedSystemPrompt();
-      const setupMessage = { 
-        setup: {
-          model: "models/gemini-2.0-flash-exp",
-          generationConfig: { responseModalities: ["TEXT"] },
-          systemInstruction: { parts: [{ text: systemPrompt }] }
-        }
-      };
+      const setupMessage = this.geminiClient.createSetupMessage(systemPrompt);
+      
       console.log('AI Assistant: Sending setup message (CM)');
-              if (this.ws && this.ws.readyState === globalThis.WebSocket.OPEN) {
-        this.ws.send(JSON.stringify(setupMessage));
+      if (this.ws && this.ws.readyState === globalThis.WebSocket.OPEN) {
+          this.ws.send(JSON.stringify(setupMessage));
       }
     }
     
-    handleGeminiResponse(responseString) {
-      let response;
-      try {
-          if (responseString instanceof Blob) {
-              responseString.text().then(text => {
-                  try {
-                      response = JSON.parse(text);
-                      this._processParsedGeminiResponse(response);
-                  } catch (e) {
-                      console.error('AI Assistant: Failed to parse Blob text as JSON (CM):', e);
-                  }
-              });
-              return;
-          } else if (typeof responseString === 'string') {
-              response = JSON.parse(responseString);
-          } else {
-              console.error('AI Assistant: Unknown type for handleGeminiResponse (CM):', typeof responseString);
-              return;
-          }
-      } catch (e) {
-          console.error('AI Assistant: Failed to parse Gemini response JSON (CM):', e);
-          return;
-      }
-      this._processParsedGeminiResponse(response);
-    }
-    
-    _processParsedGeminiResponse(response) {
-      if (response.setupComplete) {
-        this.setupComplete = true;
-        return;
-      }
-      if (response.serverContent) {
-        let responseText = '';
-        if (response.serverContent.modelTurn && response.serverContent.modelTurn.parts) {
-          response.serverContent.modelTurn.parts.forEach(part => {
-            if (part.text) responseText += part.text;
+    handleGeminiResponse(responseData) {
+      const result = this.geminiClient.parseResponse(responseData);
+      
+      // Handle async result (for Blob responses)
+      if (result && typeof result.then === 'function') {
+          result.then(parsedResult => {
+              this._processGeminiResult(parsedResult);
           });
-        }
-        const isComplete = response.serverContent.turnComplete === true;
-        if (responseText.trim()) this.sendResponseToContentScript(responseText, isComplete);
-        if (isComplete) {
-          if (!responseText.trim()) this.sendResponseToContentScript('', true);
-          this.pendingMessages.clear();
-        }
+      } else {
+          this._processGeminiResult(result);
       }
-      if (response.error) {
-        console.error('AI Assistant: Gemini error (CM):', response.error);
-        this.sendErrorToContentScript(response.error);
-      }
+    }
+    
+    _processGeminiResult(result) {
+        switch (result.type) {
+            case 'setup_complete':
+                console.log('AI Assistant: Setup completed successfully');
+                this.setupComplete = true;
+                break;
+
+            case 'content':
+                if (result.text.trim()) {
+                    this.sendResponseToContentScript(result.text, result.isComplete);
+                }
+                if (result.isComplete) {
+                    if (!result.text.trim()) {
+                        this.sendResponseToContentScript('', true);
+                    }
+                    this.geminiClient.clearAllPendingMessages();
+                }
+                break;
+
+            case 'tool_call':
+                console.log('AI Assistant: Received tool call');
+                // TODO: Handle tool calls when implemented
+                break;
+
+            case 'error':
+                console.error('AI Assistant: Gemini error response:', result.error);
+                this.sendErrorToContentScript(result.error);
+                break;
+
+            case 'metadata':
+                // Ignore usage metadata
+                break;
+
+            case 'unknown':
+                console.log('AI Assistant: Unknown response type:', result.response);
+                break;
+
+            case 'empty':
+                // Ignore empty responses
+                break;
+
+            default:
+                console.warn('AI Assistant: Unhandled result type:', result.type);
+        }
     }
   
     sendResponseToContentScript(text, isComplete = false) {
@@ -147,32 +149,35 @@ Guidelines:
   
     async handleTextMessage(text, tabId) {
       if (!this.isConnected()) {
-        chrome.tabs.sendMessage(tabId, { type: 'AI_ERROR', error: 'Not connected' }).catch(() => {});
-        return;
+          chrome.tabs.sendMessage(tabId, { type: 'AI_ERROR', error: 'Not connected' }).catch(() => {});
+          return;
       }
-      const messageId = ++this.messageCounter;
-      const textMessage = { 
-        clientContent: {
-          turns: [{ role: "user", parts: [{ text }] }],
-          turnComplete: true
-        }
-      };
-      this.pendingMessages.set(`msg_${messageId}`, { text, timestamp: Date.now(), tabId });
+
+      const { message, messageId } = this.geminiClient.createTextMessage(text);
+      
       try {
-        this.ws.send(JSON.stringify(textMessage));
+          this.ws.send(JSON.stringify(message));
+          console.log(`AI Assistant: [${messageId}] Message sent successfully`);
       } catch (error) {
-        this.pendingMessages.delete(`msg_${messageId}`);
-        chrome.tabs.sendMessage(tabId, { type: 'AI_ERROR', error: 'Send failed' }).catch(() => {});
+          this.geminiClient.clearPendingMessage(`msg_${messageId}`);
+          chrome.tabs.sendMessage(tabId, { type: 'AI_ERROR', error: 'Send failed' }).catch(() => {});
       }
+
+      // Timeout check for stuck messages
+      setTimeout(() => {
+          if (this.geminiClient.getPendingMessage(`msg_${messageId}`)) {
+              console.warn(`AI Assistant: [${messageId}] No response after 30 seconds`);
+          }
+      }, 30000);
     }
   
     handleVideoChunk(base64Data, mimeType) {
       if (!this.isConnected() || !this.connectionState.videoStreaming) return;
-      const videoMessage = {
-        realtime_input: { media_chunks: [{ data: base64Data, mime_type: mimeType }] }
-      };
+      
+      const videoMessage = this.geminiClient.createVideoMessage(base64Data, mimeType);
+      
       if (this.ws && this.ws.readyState === globalThis.WebSocket.OPEN) {
-        this.ws.send(JSON.stringify(videoMessage));
+          this.ws.send(JSON.stringify(videoMessage));
       }
     }
   
@@ -180,38 +185,32 @@ Guidelines:
     stopVideoStreaming() { this.connectionState.videoStreaming = false; }
   
     async handleTabScreenshot(tabId, sendResponse) {
-      if (!this.isConnected()) {
-        if (sendResponse) sendResponse({ success: false, error: 'Not connected' });
-        return;
-      }
-      try {
-        const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'jpeg', quality: 80 });
-        if (!dataUrl) {
-          if (sendResponse) sendResponse({ success: false, error: 'Capture failed' });
-          return;
+        if (!this.isConnected()) {
+            if (sendResponse) sendResponse({ success: false, error: 'Not connected' });
+            return;
         }
-        const base64Data = dataUrl.split(',')[1];
-        const messageId = ++this.messageCounter;
-        const screenshotMessage = {
-          clientContent: {
-            turns: [{ role: "user", parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Data } }] }],
-            turnComplete: true
-          }
-        };
-        this.pendingMessages.set(`screenshot_${messageId}`, { type: 'screenshot', timestamp: Date.now(), tabId });
-        if (this.ws && this.ws.readyState === globalThis.WebSocket.OPEN) {
-          this.ws.send(JSON.stringify(screenshotMessage));
-          if (sendResponse) sendResponse({ success: true });
+        
+        try {
+            const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'jpeg', quality: 80 });
+            if (!dataUrl) {
+                if (sendResponse) sendResponse({ success: false, error: 'Capture failed' });
+                return;
+            }
+            
+            const base64Data = dataUrl.split(',')[1];
+            const { message, messageId } = this.geminiClient.createScreenshotMessage(base64Data);
+            
+            if (this.ws && this.ws.readyState === globalThis.WebSocket.OPEN) {
+                this.ws.send(JSON.stringify(message));
+                console.log(`AI Assistant: [${messageId}] Screenshot sent successfully`);
+                if (sendResponse) sendResponse({ success: true });
+            }
+        } catch (error) {
+            if (sendResponse) sendResponse({ success: false, error: error.message });
         }
-      } catch (error) {
-        if (sendResponse) sendResponse({ success: false, error: error.message });
-      }
     }
   
-    getConnectionStatus() {
-        console.log('ConnectionManager getConnectionStatus called:', this.connectionState);
-        return this.connectionState;
-    }
+    getConnectionStatus() { return this.connectionState; }
   
     handlePromptUpdate() {
       this.cleanupConnection(); 
@@ -223,15 +222,16 @@ Guidelines:
     }
   
     startHealthMonitoring() {
-      if (this.pingInterval) clearInterval(this.pingInterval); 
+      if (this.pingInterval) clearInterval(this.pingInterval);
       this.pingInterval = setInterval(() => {
-        if (this.isConnected() && this.setupComplete) {
-          try {
-            this.ws.send(JSON.stringify({ clientContent: { turns: [] } }));
-          } catch (error) {
-            console.error('AI Assistant: Health ping failed (CM):', error);
+          if (this.isConnected() && this.setupComplete) {
+              try {
+                  const healthPing = this.geminiClient.createHealthPing();
+                  this.ws.send(JSON.stringify(healthPing));
+              } catch (error) {
+                  console.error('AI Assistant: Health ping failed (CM):', error);
+              }
           }
-        }
       }, 30000);
     }
   
@@ -345,11 +345,7 @@ Guidelines:
       };
       
       this.ws.onmessage = (event) => {
-          if (event.data instanceof Blob) {
-              event.data.text().then(text => this.handleGeminiResponse(text));
-          } else {
-              this.handleGeminiResponse(event.data);
-          }
+          this.handleGeminiResponse(event.data);
       };
       
       this.ws.onerror = (errorEvent) => { 
@@ -388,5 +384,6 @@ Guidelines:
         this.ws = null;
       }
       this.setupComplete = false;
+      this.geminiClient.clearAllPendingMessages();
     }
 };

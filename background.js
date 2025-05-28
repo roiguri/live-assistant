@@ -1,4 +1,5 @@
 // Background Script - Gemini Live API Connection Handler
+importScripts('services/gemini-client.js');
 importScripts('services/connection-manager.js');
 importScripts('services/message-router.js');
 
