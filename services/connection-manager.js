@@ -158,19 +158,6 @@ Guidelines:
       }, 30000);
     }
   
-    handleVideoChunk(base64Data, mimeType) {
-      if (!this.isConnected() || !this.connectionState.videoStreaming) return;
-      
-      const videoMessage = this.geminiClient.createVideoMessage(base64Data, mimeType);
-      
-      if (this.ws && this.ws.readyState === globalThis.WebSocket.OPEN) {
-          this.ws.send(JSON.stringify(videoMessage));
-      }
-    }
-  
-    startVideoStreaming() { this.connectionState.videoStreaming = true; }
-    stopVideoStreaming() { this.connectionState.videoStreaming = false; }
-  
     async handleTabScreenshot(tabId, sendResponse) {
         if (!this.isConnected()) {
             if (sendResponse) sendResponse({ success: false, error: 'Not connected' });

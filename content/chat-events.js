@@ -66,9 +66,7 @@ window.ChatEvents = (function() {
   }
   
   function handleMenuAction(container, action) {
-    if (action === 'toggle-live') {
-      StreamController.toggleLiveShare(container);
-    } else if (action === 'take-screenshot') {
+    if (action === 'take-screenshot') {
       ChatController.takeScreenshot(container);
     } else {
       ChatController.changeState(container, action);
@@ -271,11 +269,6 @@ window.ChatEvents = (function() {
     }, 1000);
   }
   
-  // Stream end handler for external callback
-  function onScreenShareEnded() {
-    StreamController.handleStreamEnd();
-  }
-
   function handleChatVisibilityToggle(container, visible) {
     console.log('ChatEvents: Toggling chat visibility:', visible);
     
@@ -327,8 +320,7 @@ window.ChatEvents = (function() {
   
   // Public API
   return {
-    setupEventListeners,
-    onScreenShareEnded
+    setupEventListeners
   };
   
 })();

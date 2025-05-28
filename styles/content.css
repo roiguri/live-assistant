@@ -103,14 +103,6 @@
   transform: scale(1.1);
 }
 
-.menu-item.live-active {
-  color: #f44336;
-}
-
-.menu-item.live-inactive {
-  color: #4caf50;
-}
-
 .menu-icon {
   font-size: 12px;
 }

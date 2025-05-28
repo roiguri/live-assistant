@@ -31,11 +31,6 @@ window.ChatView = (function() {
                     <button class="menu-item" data-action="take-screenshot" title="Take screenshot">
                         <span class="menu-icon">📸</span>
                     </button>
-                    <!-- TODO: enable when live share is fully implemented
-                    <button disable class="menu-item live-inactive" data-action="toggle-live" title="Start live share">
-                        <span class="menu-icon">▶️</span>
-                    </button> 
-                    -->
                     <button class="menu-item" data-action="clear-chat" title="Clear chat">
                         <span class="menu-icon">🗑️</span>
                     </button>

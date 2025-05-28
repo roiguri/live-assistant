@@ -73,18 +73,6 @@ globalThis.GeminiClient = class GeminiClient {
         return { message, messageId };
     }
 
-    // Format video chunk for Gemini Live API
-    createVideoMessage(base64Data, mimeType) {
-        return {
-            realtime_input: {
-                media_chunks: [{
-                    data: base64Data,
-                    mime_type: mimeType
-                }]
-            }
-        };
-    }
-
     // Create health ping message
     createHealthPing() {
         return {

@@ -131,28 +131,6 @@ window.MenuView = (function() {
         }
     }
     
-    function updateLiveShareState(container, isActive) {
-        const menuItem = container.querySelector('[data-action="toggle-live"]');
-        const iconEl = menuItem.querySelector('.menu-icon');
-        
-        if (isActive) {
-            menuItem.classList.remove('live-inactive');
-            menuItem.classList.add('live-active');
-            menuItem.title = 'Stop live share';
-            iconEl.textContent = '⏸️';
-        } else {
-            menuItem.classList.remove('live-active');
-            menuItem.classList.add('live-inactive');
-            menuItem.title = 'Start live share';
-            iconEl.textContent = '▶️';
-        }
-    }
-    
-    function getLiveShareState(container) {
-        const menuItem = container.querySelector('[data-action="toggle-live"]');
-        return menuItem.classList.contains('live-active');
-    }
-    
     function getHoverTarget(container) {
         return container.getAttribute('data-state') === 'full' ? container : container.querySelector('.chat-input-area');
     }
@@ -176,8 +154,6 @@ window.MenuView = (function() {
         hideMenu,
         forceHideMenu,
         positionMenu,
-        updateLiveShareState,
-        getLiveShareState,
         isMenuVisible,
         updateMenuForDrag
     };

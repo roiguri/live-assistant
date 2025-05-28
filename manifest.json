@@ -62,7 +62,6 @@
         "content/views/chat-view.js",
         "content/views/message-view.js",
         "content/views/menu-view.js",
-        "content/controllers/stream-controller.js",
         "content/controllers/chat-controller.js",
         "content/chat-ui.js",
         "content/chat-events.js", 

@@ -17,24 +17,6 @@ globalThis.MessageRouter = class MessageRouter {
             }
         });
 
-        this.registerHandler('SEND_VIDEO_CHUNK', (message, sender) => {
-            if (this.connectionManager) {
-                this.connectionManager.handleVideoChunk(message.data, message.mimeType, sender.tab.id);
-            }
-        });
-
-        this.registerHandler('START_VIDEO_STREAM', (message, sender) => {
-            if (this.connectionManager) {
-                this.connectionManager.startVideoStreaming(sender.tab.id);
-            }
-        });
-
-        this.registerHandler('STOP_VIDEO_STREAM', (message, sender) => {
-            if (this.connectionManager) {
-                this.connectionManager.stopVideoStreaming(sender.tab.id);
-            }
-        });
-
         this.registerHandler('TAKE_SCREENSHOT', (message, sender, sendResponse) => {
             if (this.connectionManager) {
                 this.connectionManager.handleTabScreenshot(sender.tab.id, sendResponse);
