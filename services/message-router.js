@@ -2,6 +2,7 @@
 globalThis.MessageRouter = class MessageRouter {
     constructor() {
         this.handlers = new Map();
+        this.errorHandler = new globalThis.ErrorHandler();
         this.setupDefaultHandlers();
     }
 
@@ -59,14 +60,14 @@ globalThis.MessageRouter = class MessageRouter {
                 // Return true if handler needs to keep response channel open
                 return result === true;
             } catch (error) {
-                console.error(`Message Router: Error handling ${message.type}:`, error);
+                this.errorHandler.error('MessageRouter', `Error handling ${message.type}`, error.message);
                 if (sendResponse) {
                     sendResponse({ success: false, error: error.message });
                 }
                 return false;
             }
         } else {
-            console.warn(`Message Router: No handler for message type: ${message.type}`);
+            this.errorHandler.logWarning('MessageRouter', `No handler for message type: ${message.type}`);
             return false;
         }
     }

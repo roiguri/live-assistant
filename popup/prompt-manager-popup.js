@@ -9,19 +9,19 @@ const PromptManager = (function() {
             const result = await chrome.storage.local.get([STORAGE_KEY]);
             return result[STORAGE_KEY] || '';
         } catch (error) {
-            console.error('Failed to get custom instructions:', error);
-            return '';
+          // Silently return empty string on error - UI will handle gracefully
+          return '';
         }
     }
 
     async function setCustomInstructions(instructions) {
         try {
             if (typeof instructions !== 'string') {
-                throw new Error('Instructions must be a string');
+                return { success: false, error: 'Instructions must be a string' };
             }
             
             if (instructions.length > 2000) {
-                throw new Error('Instructions too long (max 2000 characters)');
+                return { success: false, error: 'Instructions too long (max 2000 characters)' };
             }
 
             await chrome.storage.local.set({
@@ -30,7 +30,7 @@ const PromptManager = (function() {
             
             return { success: true };
         } catch (error) {
-            console.error('Failed to save custom instructions:', error);
+            // Return user-friendly error message - popup will display it
             return { success: false, error: error.message };
         }
     }

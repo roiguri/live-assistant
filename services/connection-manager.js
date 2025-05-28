@@ -4,7 +4,6 @@ globalThis.ConnectionManager = class ConnectionManager {
       this.ws = null;
       this.connectionState = {
         websocket: 'disconnected',
-        videoStreaming: false,
         lastError: null,
         reconnectAttempts: 0,
         maxReconnectAttempts: 5,
@@ -15,6 +14,7 @@ globalThis.ConnectionManager = class ConnectionManager {
       this.setupComplete = false;
       this.geminiClient = new globalThis.GeminiClient();
       this.apiService = new globalThis.ApiService();
+      this.errorHandler = new globalThis.ErrorHandler();
     }
   
     _getDefaultSystemPrompt() {
@@ -38,7 +38,7 @@ Guidelines:
         const customInstructions = result.customInstructions || '';
         return customInstructions.trim() ? `${defaultPrompt}\n\nUser Instructions:\n${customInstructions}` : defaultPrompt;
       } catch (error) {
-        console.error('AI Assistant: Failed to get combined prompt (CM):', error);
+        this.errorHandler.handleStorageError(error, 'get custom prompt');
         return this._getDefaultSystemPrompt();
       }
     }
@@ -47,9 +47,9 @@ Guidelines:
       const systemPrompt = await this._getCombinedSystemPrompt();
       const setupMessage = this.geminiClient.createSetupMessage(systemPrompt);
       
-      console.log('AI Assistant: Sending setup message (CM)');
       if (this.ws && this.ws.readyState === globalThis.WebSocket.OPEN) {
           this.ws.send(JSON.stringify(setupMessage));
+          this.errorHandler.debug('Connection', 'Setup message sent');
       }
     }
     
@@ -69,8 +69,8 @@ Guidelines:
     _processGeminiResult(result) {
         switch (result.type) {
             case 'setup_complete':
-                console.log('AI Assistant: Setup completed successfully');
                 this.setupComplete = true;
+                this.errorHandler.logSuccess('Connection', 'Setup completed');
                 break;
 
             case 'content':
@@ -86,12 +86,12 @@ Guidelines:
                 break;
 
             case 'tool_call':
-                console.log('AI Assistant: Received tool call');
+                this.errorHandler.info('API', 'Tool call received');
                 // TODO: Handle tool calls when implemented
                 break;
 
             case 'error':
-                console.error('AI Assistant: Gemini error response:', result.error);
+                this.errorHandler.handleApiError(result.error, 'Gemini response');
                 this.sendErrorToContentScript(result.error);
                 break;
 
@@ -100,7 +100,7 @@ Guidelines:
                 break;
 
             case 'unknown':
-                console.log('AI Assistant: Unknown response type:', result.response);
+                this.errorHandler.logWarning('API', 'Unknown response type', result.response);
                 break;
 
             case 'empty':
@@ -108,7 +108,7 @@ Guidelines:
                 break;
 
             default:
-                console.warn('AI Assistant: Unhandled result type:', result.type);
+                this.errorHandler.logWarning('API', `Unhandled result type: ${result.type}`);
         }
     }
   
@@ -136,7 +136,9 @@ Guidelines:
   
     async handleTextMessage(text, tabId) {
       if (!this.isConnected()) {
-          chrome.tabs.sendMessage(tabId, { type: 'AI_ERROR', error: 'Not connected' }).catch(() => {});
+          const error = 'Not connected to AI service';
+          this.errorHandler.handleConnectionError(error);
+          chrome.tabs.sendMessage(tabId, { type: 'AI_ERROR', error }).catch(() => {});
           return;
       }
 
@@ -144,30 +146,37 @@ Guidelines:
       
       try {
           this.ws.send(JSON.stringify(message));
-          console.log(`AI Assistant: [${messageId}] Message sent successfully`);
+          this.errorHandler.debug('Message', `Message sent [${messageId}]`);
       } catch (error) {
           this.geminiClient.clearPendingMessage(`msg_${messageId}`);
-          chrome.tabs.sendMessage(tabId, { type: 'AI_ERROR', error: 'Send failed' }).catch(() => {});
+          const userError = this.errorHandler.handleMessageError(error.message, text);
+          chrome.tabs.sendMessage(tabId, { type: 'AI_ERROR', error: userError }).catch(() => {});
       }
 
       // Timeout check for stuck messages
       setTimeout(() => {
           if (this.geminiClient.getPendingMessage(`msg_${messageId}`)) {
-              console.warn(`AI Assistant: [${messageId}] No response after 30 seconds`);
+              this.errorHandler.logWarning('Message', `No response after 30s [${messageId}]`);
           }
       }, 30000);
     }
   
     async handleTabScreenshot(tabId, sendResponse) {
         if (!this.isConnected()) {
-            if (sendResponse) sendResponse({ success: false, error: 'Not connected' });
+            const error = 'Not connected to AI service';
+            this.errorHandler.handleConnectionError(error);
+            if (sendResponse) sendResponse(this.errorHandler.createErrorResponse(error));
             return;
         }
         
         try {
+            const startTime = Date.now();
             const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'jpeg', quality: 80 });
+            
             if (!dataUrl) {
-                if (sendResponse) sendResponse({ success: false, error: 'Capture failed' });
+                const error = 'Failed to capture screenshot';
+                this.errorHandler.handleScreenshotError(error);
+                if (sendResponse) sendResponse(this.errorHandler.createErrorResponse(error));
                 return;
             }
             
@@ -176,17 +185,20 @@ Guidelines:
             
             if (this.ws && this.ws.readyState === globalThis.WebSocket.OPEN) {
                 this.ws.send(JSON.stringify(message));
-                console.log(`AI Assistant: [${messageId}] Screenshot sent successfully`);
-                if (sendResponse) sendResponse({ success: true });
+                const duration = Date.now() - startTime;
+                this.errorHandler.logPerformance('Screenshot', 'capture and send', duration);
+                if (sendResponse) sendResponse(this.errorHandler.createSuccessResponse());
             }
         } catch (error) {
-            if (sendResponse) sendResponse({ success: false, error: error.message });
+            const userError = this.errorHandler.handleScreenshotError(error.message);
+            if (sendResponse) sendResponse(this.errorHandler.createErrorResponse(userError));
         }
     }
   
     getConnectionStatus() { return this.connectionState; }
   
     handlePromptUpdate() {
+      this.errorHandler.info('Connection', 'Prompt updated, reconnecting');
       this.cleanupConnection(); 
       this.connectionState.reconnectAttempts = 0;
       this.connectionState.reconnectDelay = 5000; 
@@ -203,7 +215,7 @@ Guidelines:
                   const healthPing = this.geminiClient.createHealthPing();
                   this.ws.send(JSON.stringify(healthPing));
               } catch (error) {
-                  console.error('AI Assistant: Health ping failed (CM):', error);
+                  this.errorHandler.handleConnectionError(error.message, 'Health ping');
               }
           }
       }, 30000);
@@ -226,12 +238,15 @@ Guidelines:
       if (this.connectionState.reconnectAttempts >= this.connectionState.maxReconnectAttempts) {
           this.connectionState.websocket = 'failed';
           this.connectionState.lastError = 'Max reconnection attempts exceeded';
+          this.errorHandler.error('Connection', 'Max reconnection attempts exceeded');
           this.notifyContentScriptOfConnectionLoss();
           return;
       }
       
       this.connectionState.reconnectAttempts++;
       const delay = Math.min(this.connectionState.reconnectDelay * Math.pow(1.5, this.connectionState.reconnectAttempts - 1), 60000);
+      
+      this.errorHandler.info('Connection', `Reconnecting in ${delay}ms (attempt ${this.connectionState.reconnectAttempts})`);
       
       if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
       
@@ -243,6 +258,7 @@ Guidelines:
               } else {
                   this.connectionState.websocket = 'failed';
                   this.connectionState.lastError = 'No API key for reconnection';
+                  this.errorHandler.handleConnectionError('No API key configured');
                   this.notifyContentScriptOfConnectionLoss();
               }
           } catch (error) {
@@ -251,6 +267,7 @@ Guidelines:
                   this.attemptReconnection();
               } else {
                   this.connectionState.websocket = 'failed';
+                  this.errorHandler.handleConnectionError(error.message, 'Reconnection');
                   this.notifyContentScriptOfConnectionLoss();
               }
           }
@@ -258,6 +275,7 @@ Guidelines:
     }
     
     manualReconnect() {
+      this.errorHandler.info('Connection', 'Manual reconnection initiated');
       this.cleanupConnection(); 
       this.connectionState.reconnectAttempts = 0;
       this.connectionState.reconnectDelay = 5000; 
@@ -286,6 +304,7 @@ Guidelines:
           if (!apiKey) {
               this.connectionState.lastError = 'No API key configured';
               this.connectionState.websocket = 'failed';
+              this.errorHandler.handleConnectionError('No API key configured');
               this.notifyContentScriptOfConnectionLoss();
               return;
           }
@@ -293,6 +312,7 @@ Guidelines:
       } catch (error) {
           this.connectionState.lastError = error.message;
           this.connectionState.websocket = 'failed';
+          this.errorHandler.handleConnectionError(error.message, 'Connection initialization');
           this.notifyContentScriptOfConnectionLoss();
       }
     }
@@ -306,6 +326,8 @@ Guidelines:
       this.connectionState.websocket = this.connectionState.reconnectAttempts > 0 ? 'reconnecting' : 'connecting';
       this.setupComplete = false;
       
+      this.errorHandler.info('Connection', `Connecting to Gemini (attempt ${this.connectionState.reconnectAttempts + 1})`);
+      
       this.ws = new globalThis.WebSocket(wsUrl);
       
       this.ws.onopen = () => {
@@ -314,6 +336,7 @@ Guidelines:
         this.connectionState.reconnectAttempts = 0; 
         this.connectionState.reconnectDelay = 5000; 
         
+        this.errorHandler.logSuccess('Connection', 'Connected to Gemini');
         this.sendSetupMessage();   
         this.startHealthMonitoring();
       };
@@ -324,6 +347,7 @@ Guidelines:
       
       this.ws.onerror = (errorEvent) => { 
         this.connectionState.lastError = 'WebSocket connection error';
+        this.errorHandler.handleConnectionError('WebSocket error');
       };
       
       this.ws.onclose = (event) => {
@@ -334,8 +358,10 @@ Guidelines:
         if (this.shouldAttemptReconnection(event.code)) {
           this.attemptReconnection();
         } else {
-          this.connectionState.lastError = `Connection closed: ${event.reason || event.code || 'Unknown'}`;
+          const reason = event.reason || event.code || 'Unknown';
+          this.connectionState.lastError = `Connection closed: ${reason}`;
           this.connectionState.websocket = 'failed';
+          this.errorHandler.handleConnectionError(`Connection closed: ${reason}`);
           this.notifyContentScriptOfConnectionLoss();
         }
       };

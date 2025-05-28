@@ -4,6 +4,7 @@ globalThis.ApiService = class ApiService {
         // API key validation patterns
         this.GEMINI_KEY_PREFIX = 'AIza';
         this.MIN_KEY_LENGTH = 35;
+        this.errorHandler = new globalThis.ErrorHandler();
     }
 
     // Get API key from storage (secure first, then local fallback)
@@ -25,7 +26,7 @@ globalThis.ApiService = class ApiService {
                 return result.geminiApiKey;
             }
         } catch (err) {
-            console.error('API Service: Failed to get API key:', err);
+            this.errorHandler.handleStorageError(err.message, 'get API key');
         }
         
         return null;
@@ -34,7 +35,7 @@ globalThis.ApiService = class ApiService {
     // Save API key to storage (secure first, then local fallback)
     async saveApiKey(apiKey) {
         if (!this.isValidApiKeyFormat(apiKey)) {
-            throw new Error('Invalid API key format');
+            return { success: false, error: 'Invalid API key format' };
         }
 
         try {
@@ -47,7 +48,8 @@ globalThis.ApiService = class ApiService {
                 await chrome.storage.local.set({ geminiApiKey: apiKey });
                 return { success: true, storage: 'local' };
             } catch (err) {
-                throw new Error('Failed to save API key to any storage');
+                this.errorHandler.handleStorageError(err.message, 'save API key');
+                return { success: false, error: 'Failed to save API key' };
             }
         }
     }
@@ -73,11 +75,11 @@ globalThis.ApiService = class ApiService {
         const keyToTest = apiKey || await this.getApiKey();
         
         if (!keyToTest) {
-            throw new Error('No API key to test');
+            return { valid: false, error: 'No API key to test' };
         }
 
         if (!this.isValidApiKeyFormat(keyToTest)) {
-            throw new Error('Invalid API key format');
+            return { valid: false, error: 'Invalid API key format' };
         }
 
         try {
@@ -93,21 +95,20 @@ globalThis.ApiService = class ApiService {
 
             if (response.ok) {
                 const data = await response.json();
+                const isValid = data.models && data.models.length > 0;
+                this.errorHandler.logSuccess('ApiService', `API key test: ${isValid ? 'valid' : 'invalid'}`);
                 return {
-                    valid: data.models && data.models.length > 0,
+                    valid: isValid,
                     modelsCount: data.models ? data.models.length : 0
                 };
             } else {
-                return {
-                    valid: false,
-                    error: `HTTP ${response.status}: ${response.statusText}`
-                };
+                const error = `HTTP ${response.status}: ${response.statusText}`;
+                this.errorHandler.handleApiError(error, 'API key test');
+                return { valid: false, error };
             }
         } catch (error) {
-            return {
-                valid: false,
-                error: error.message
-            };
+            this.errorHandler.handleApiError(error.message, 'API key test');
+            return { valid: false, error: error.message };
         }
     }
 
@@ -117,9 +118,11 @@ globalThis.ApiService = class ApiService {
             // Clear from both storage types
             await chrome.storage.secure.remove(['geminiApiKey']).catch(() => {});
             await chrome.storage.local.remove(['geminiApiKey']).catch(() => {});
+            this.errorHandler.logSuccess('ApiService', 'API key cleared');
             return { success: true };
         } catch (error) {
-            throw new Error('Failed to clear API key');
+            this.errorHandler.handleStorageError(error.message, 'clear API key');
+            return { success: false, error: 'Failed to clear API key' };
         }
     }
 
@@ -152,8 +155,7 @@ globalThis.ApiService = class ApiService {
         if (chrome.runtime && chrome.runtime.openOptionsPage) {
             chrome.runtime.openOptionsPage();
         } else {
-            // Fallback: show message to user
-            console.warn('API Service: No API key configured. Please click the extension icon to set up your Gemini API key.');
+            this.errorHandler.info('ApiService', 'No API key configured - user should click extension icon');
         }
     }
 };

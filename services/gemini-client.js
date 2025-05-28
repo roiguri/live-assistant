@@ -3,6 +3,7 @@ globalThis.GeminiClient = class GeminiClient {
     constructor() {
         this.messageCounter = 0;
         this.pendingMessages = new Map();
+        this.errorHandler = new globalThis.ErrorHandler();
     }
 
     // Format setup message for Gemini Live API
@@ -42,6 +43,7 @@ globalThis.GeminiClient = class GeminiClient {
             messageId: messageId
         });
 
+        this.errorHandler.debug('GeminiClient', `Text message created [${messageId}]`);
         return { message, messageId };
     }
 
@@ -70,6 +72,9 @@ globalThis.GeminiClient = class GeminiClient {
             messageId: messageId
         });
 
+        this.errorHandler.debug('GeminiClient', `Screenshot message created [${messageId}]`, {
+            dataSize: `${Math.round(base64Data.length / 1024)}KB`
+        });
         return { message, messageId };
     }
 
@@ -93,7 +98,7 @@ globalThis.GeminiClient = class GeminiClient {
                 try {
                     return this._processParsedResponse(JSON.parse(text));
                 } catch (e) {
-                    console.error('Gemini Client: Failed to parse Blob text as JSON:', e);
+                    this.errorHandler.error('GeminiClient', 'Failed to parse Blob text as JSON', e.message);
                     return { type: 'error', error: 'Failed to parse response' };
                 }
             });
@@ -101,11 +106,11 @@ globalThis.GeminiClient = class GeminiClient {
             try {
                 response = JSON.parse(responseData);
             } catch (e) {
-                console.error('Gemini Client: Failed to parse string as JSON:', e);
+                this.errorHandler.error('GeminiClient', 'Failed to parse string as JSON', e.message);
                 return { type: 'error', error: 'Failed to parse response' };
             }
         } else {
-            console.error('Gemini Client: Unknown response type:', typeof responseData);
+            this.errorHandler.error('GeminiClient', `Unknown response type: ${typeof responseData}`);
             return { type: 'error', error: 'Unknown response format' };
         }
 
@@ -114,7 +119,13 @@ globalThis.GeminiClient = class GeminiClient {
 
     // Process parsed JSON response
     _processParsedResponse(response) {
-        console.log('Gemini Client: Processing response:', JSON.stringify(response, null, 2));
+        this.errorHandler.debug('GeminiClient', 'Processing response', {
+            hasSetupComplete: !!response.setupComplete,
+            hasServerContent: !!response.serverContent,
+            hasToolCall: !!response.toolCall,
+            hasError: !!response.error,
+            hasUsageMetadata: !!response.usageMetadata
+        });
 
         // Setup completion
         if (response.setupComplete) {
@@ -137,6 +148,11 @@ globalThis.GeminiClient = class GeminiClient {
 
             const isComplete = response.serverContent.turnComplete === true;
 
+            this.errorHandler.debug('GeminiClient', 'Content response', {
+                textLength: responseText.length,
+                isComplete: isComplete
+            });
+
             return {
                 type: 'content',
                 text: responseText,
@@ -146,6 +162,7 @@ globalThis.GeminiClient = class GeminiClient {
 
         // Tool call
         if (response.toolCall) {
+            this.errorHandler.info('GeminiClient', 'Tool call received', response.toolCall);
             return {
                 type: 'tool_call',
                 toolCall: response.toolCall
@@ -154,6 +171,7 @@ globalThis.GeminiClient = class GeminiClient {
 
         // Error response
         if (response.error) {
+            this.errorHandler.error('GeminiClient', 'API error response', response.error);
             return {
                 type: 'error',
                 error: response.error
@@ -162,6 +180,7 @@ globalThis.GeminiClient = class GeminiClient {
 
         // Usage metadata (can be ignored)
         if (response.usageMetadata) {
+            this.errorHandler.debug('GeminiClient', 'Usage metadata', response.usageMetadata);
             return {
                 type: 'metadata',
                 metadata: response.usageMetadata
@@ -173,7 +192,10 @@ globalThis.GeminiClient = class GeminiClient {
         const unknownKeys = Object.keys(response).filter(key => !knownKeys.includes(key));
         
         if (unknownKeys.length > 0) {
-            console.log('Gemini Client: Unknown response keys:', unknownKeys, response);
+            this.errorHandler.logWarning('GeminiClient', 'Unknown response keys detected', {
+                unknownKeys: unknownKeys,
+                response: response
+            });
             return {
                 type: 'unknown',
                 response: response
@@ -192,12 +214,20 @@ globalThis.GeminiClient = class GeminiClient {
 
     // Clear pending message
     clearPendingMessage(messageId) {
-        return this.pendingMessages.delete(messageId);
+        const cleared = this.pendingMessages.delete(messageId);
+        if (cleared) {
+            this.errorHandler.debug('GeminiClient', `Cleared pending message [${messageId}]`);
+        }
+        return cleared;
     }
 
     // Clear all pending messages
     clearAllPendingMessages() {
+        const count = this.pendingMessages.size;
         this.pendingMessages.clear();
+        if (count > 0) {
+            this.errorHandler.info('GeminiClient', `Cleared ${count} pending messages`);
+        }
     }
 
     // Get pending message count
@@ -209,12 +239,17 @@ globalThis.GeminiClient = class GeminiClient {
     cleanupOldPendingMessages() {
         const now = Date.now();
         const timeout = 30000; // 30 seconds
+        let cleanedCount = 0;
 
         for (const [key, message] of this.pendingMessages) {
             if (now - message.timestamp > timeout) {
-                console.warn(`Gemini Client: Cleaning up old pending message: ${key}`);
                 this.pendingMessages.delete(key);
+                cleanedCount++;
             }
+        }
+
+        if (cleanedCount > 0) {
+            this.errorHandler.logWarning('GeminiClient', `Cleaned up ${cleanedCount} old pending messages`);
         }
     }
 };

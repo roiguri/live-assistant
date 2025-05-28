@@ -15,8 +15,6 @@ window.ChatController = (function() {
       window.ChatUI.clearInput(container);
       
       // Send to background script → Gemini Live API
-      console.log('ChatController: Sending message to background:', message);
-      
       chrome.runtime.sendMessage({
         type: 'SEND_TEXT_MESSAGE',
         text: message
@@ -27,8 +25,6 @@ window.ChatController = (function() {
     }
     
     function receiveResponse(text, isComplete) {
-      console.log('ChatController: AI Response:', text, 'Complete:', isComplete);
-      
       const container = document.getElementById('assistant-chat');
       if (!container) return;
       
@@ -66,7 +62,6 @@ window.ChatController = (function() {
       } else {
         // Set a timeout to auto-finalize if no completion signal arrives
         const timeoutId = setTimeout(() => {
-          console.warn('ChatController: Response timeout - auto-finalizing current response');
           finalizeCurrentResponse();
         }, 15000); // 15 second timeout
         ConnectionState.setResponseTimeout(timeoutId);
@@ -74,8 +69,6 @@ window.ChatController = (function() {
     }
     
     function handleError(error) {
-      console.error('ChatController: AI Error:', error);
-      
       // Finalize any current response on error
       finalizeCurrentResponse();
       
@@ -87,7 +80,9 @@ window.ChatController = (function() {
           ConnectionState.clearTyping();
         }
         
-        window.ChatUI.addMessage(container, `Error: ${error}`, 'ai');
+        // Show user-friendly error message
+        const displayError = error.startsWith('Error:') ? error : `Error: ${error}`;
+        window.ChatUI.addMessage(container, displayError, 'ai');
       }
     }
     
@@ -108,7 +103,6 @@ window.ChatController = (function() {
       const currentResponseElement = ConnectionState.getStreamingElement();
       if (currentResponseElement) {
         MessageView.finalizeStreamingMessage(currentResponseElement);
-        console.log('ChatController: AI response finalized');
       }
       
       // Clear timeout
@@ -123,9 +117,7 @@ window.ChatController = (function() {
       chrome.runtime.sendMessage({
         type: 'TAKE_SCREENSHOT'
       }, (response) => {
-        console.log('ChatController: Screenshot response:', response);
         if (chrome.runtime.lastError || !response?.success) {
-          console.error('ChatController: Screenshot error:', chrome.runtime.lastError || response?.error);
           window.ChatUI.addMessage(container, 'Screenshot failed', 'system');
         } else {
           // Show typing indicator for AI response

@@ -180,9 +180,7 @@ window.ChatEvents = (function() {
   }
   
   // Initialize message listener for responses from background script
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('ChatEvents: Received message from background:', message.type);
-    
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {    
     const container = document.getElementById('assistant-chat');
     if (!container) {
       sendResponse({ success: false, error: 'Chat container not found' });
@@ -222,9 +220,7 @@ window.ChatEvents = (function() {
     }
   });
 
-  function handleConnectionLost(container, canReconnect) {
-    console.log('ChatEvents: Connection lost, canReconnect:', canReconnect);
-    
+  function handleConnectionLost(container, canReconnect) {    
     // Update connection status UI
     if (window.ChatView && window.ChatView.updateConnectionStatus) {
       window.ChatView.updateConnectionStatus(container, 'failed', canReconnect);
@@ -249,7 +245,6 @@ window.ChatEvents = (function() {
     setInterval(() => {
       chrome.runtime.sendMessage({ type: 'GET_CONNECTION_STATUS' }, (response) => {
         if (chrome.runtime.lastError) {
-          console.error('Failed to get connection status:', chrome.runtime.lastError);
           return;
         }
         
@@ -269,9 +264,7 @@ window.ChatEvents = (function() {
     }, 1000);
   }
   
-  function handleChatVisibilityToggle(container, visible) {
-    console.log('ChatEvents: Toggling chat visibility:', visible);
-    
+  function handleChatVisibilityToggle(container, visible) {   
     if (visible) {
       container.style.display = 'block';
       chrome.storage.local.set({ chatVisible: true });
@@ -288,9 +281,7 @@ window.ChatEvents = (function() {
     }
   }
 
-  function focusChatInput(container) {
-    console.log('ChatEvents: Focusing chat input');
-    
+  function focusChatInput(container) {  
     const input = container.querySelector('.chat-input');
     if (input) {
       input.focus();
@@ -298,9 +289,7 @@ window.ChatEvents = (function() {
     }
   }
 
-  function handleKeyboardScreenshot(container) {
-    console.log('ChatEvents: Taking screenshot via keyboard');
-    
+  function handleKeyboardScreenshot(container) {   
     // Ensure chat is visible
     if (container.style.display === 'none') {
       container.style.display = 'block';

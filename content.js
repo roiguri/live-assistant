@@ -12,7 +12,6 @@
     function initializeChat() {
       // Ensure modules are available
       if (!window.ChatUI || !window.ChatEvents) {
-        console.error('AI Assistant: Required modules not loaded');
         return;
       }
       
@@ -30,10 +29,7 @@
         // Set up all event listeners
         window.ChatEvents.setupEventListeners(chatContainer);
         
-        console.log('AI Assistant: Chat interface initialized successfully');
-        
       } catch (error) {
-        console.error('AI Assistant: Failed to initialize chat interface', error);
       }
     }
     

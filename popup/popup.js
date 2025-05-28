@@ -2,20 +2,20 @@
 (function() {
   'use strict';
 
-  // General tab elements (your original code)
+  // General tab elements
   const apiKeyInput = document.getElementById('apiKey');
   const chatVisibleToggle = document.getElementById('chatVisible');
   const testBtn = document.getElementById('testBtn');
   const statusDiv = document.getElementById('status');
   const form = document.getElementById('settingsForm');
   
-  // Prompts tab elements (new)
+  // Prompts tab elements
   const customInstructionsInput = document.getElementById('customInstructions');
   const saveInstructionsBtn = document.getElementById('saveInstructions');
   const clearInstructionsBtn = document.getElementById('clearInstructions');
   const charCounter = document.getElementById('charCounter');
   
-  // Tab management (new)
+  // Tab management
   const tabs = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tab-content');
   
@@ -24,7 +24,7 @@
   setupTabs();
   setupPromptHandlers();
   
-  // Event listeners (your original code)
+  // Event listeners
   form.addEventListener('submit', handleSave);
   testBtn.addEventListener('click', handleTest);
   chatVisibleToggle.addEventListener('change', handleToggleChange);
@@ -50,7 +50,6 @@
       
       // Load prompt preview when switching to prompts tab
       if (tabName === 'prompts') {
-          // Just ensure char counter is updated
           updateCharCounter();
       }
   }
@@ -67,8 +66,9 @@
       }
   }
   
-  // Load settings (your original code + new prompt loading)
+  // Load settings
   async function loadSavedSettings() {
+      // Load API key
       try {
           const result = await chrome.storage.secure.get(['geminiApiKey']);
           if (result.geminiApiKey) {
@@ -84,7 +84,7 @@
                   showStatus('API key loaded', 'success');
               }
           } catch (err) {
-              console.error('Failed to load API key:', err);
+              showStatus('Failed to load API key', 'error');
           }
       }
 
@@ -93,23 +93,22 @@
           const result = await chrome.storage.local.get(['chatVisible']);
           chatVisibleToggle.checked = result.chatVisible !== false; // Default to true
       } catch (error) {
-          console.error('Failed to load chat visibility setting:', error);
-          chatVisibleToggle.checked = true; // Default to visible
+          chatVisibleToggle.checked = true; // Default to visible on error
       }
       
-      // Load custom instructions (new)
+      // Load custom instructions
       if (PromptManager && customInstructionsInput) {
           try {
               const customInstructions = await PromptManager.getCustomInstructions();
               customInstructionsInput.value = customInstructions;
               updateCharCounter();
           } catch (error) {
-              console.error('Failed to load custom instructions:', error);
+              showStatus('Failed to load custom instructions', 'error');
           }
       }
   }
   
-  // Save API key (your original code)
+  // Save API key
   async function handleSave(e) {
       e.preventDefault();
       
@@ -135,16 +134,12 @@
           }
           
           showStatus('API key saved successfully!', 'success');
-          
-          // Removed auto-close behavior - keep popup open
-          
       } catch (error) {
-          console.error('Save error:', error);
           showStatus('Failed to save API key', 'error');
       }
   }
 
-  // Chat toggle (your original code)
+  // Chat toggle
   async function handleToggleChange() {
       const isVisible = chatVisibleToggle.checked;
       
@@ -166,14 +161,13 @@
           showStatus(isVisible ? 'Chat enabled' : 'Chat hidden', 'success');
           
       } catch (error) {
-          console.error('Failed to toggle chat visibility:', error);
           showStatus('Failed to update chat visibility', 'error');
           // Revert toggle on error
           chatVisibleToggle.checked = !isVisible;
       }
   }
   
-  // Test API key (your original code)
+  // Test API key
   async function handleTest(e) {
       e.preventDefault();
       
@@ -201,14 +195,13 @@
           }
           
       } catch (error) {
-          console.error('Test error:', error);
           showStatus('Failed to test API key', 'error');
       } finally {
           testBtn.disabled = false;
       }
   }
   
-  // API key testing (your original code)
+  // API key testing
   async function testApiKey(apiKey) {
       try {
           const response = await fetch('https://generativelanguage.googleapis.com/v1/models?key=' + apiKey, {
@@ -225,19 +218,18 @@
           
           return false;
       } catch (error) {
-          console.error('API test failed:', error);
-          return false;
+          return false; // Silently fail - error already shown to user
       }
   }
   
-  // API key validation (your original code)
+  // API key validation
   function isValidApiKeyFormat(apiKey) {
       // Basic validation for Gemini API key format
       // Typically starts with 'AIza' and is ~39 characters
       return apiKey.length >= 35 && apiKey.startsWith('AIza');
   }
   
-  // Status display (your original code)
+  // Status display
   function showStatus(message, type) {
       statusDiv.textContent = message;
       statusDiv.className = `status ${type}`;
@@ -253,7 +245,7 @@
       }
   }
   
-  // NEW: Prompt management functions
+  // Prompt management functions
   function handleInstructionsInput() {
       updateCharCounter();
       
@@ -285,10 +277,6 @@
       charCounter.classList.toggle('warning', currentLength > maxLength * 0.9);
   }
   
-  async function updatePromptPreview() {
-      // Removed to keep system prompt private
-  }
-  
   async function saveInstructions() {
       if (!PromptManager) {
           showStatus('PromptManager not available', 'error');
@@ -312,7 +300,6 @@
               showStatus(result.error, 'error');
           }
       } catch (error) {
-          console.error('Failed to save instructions:', error);
           showStatus('Failed to save instructions', 'error');
       }
   }
