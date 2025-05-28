@@ -21,8 +21,27 @@ function loadChatState() {
   return global.ChatState;
 }
 
+function loadServices() {
+  // Load ErrorHandler first (GeminiClient depends on it)
+  const errorHandlerPath = path.join(__dirname, '../../../services/error-handler.js');
+  const errorHandlerCode = fs.readFileSync(errorHandlerPath, 'utf8');
+  eval(errorHandlerCode);
+
+  // Load GeminiClient
+  const geminiClientPath = path.join(__dirname, '../../../services/gemini-client.js');
+  const geminiClientCode = fs.readFileSync(geminiClientPath, 'utf8');
+  eval(geminiClientCode);
+
+  return { 
+    ErrorHandler: global.ErrorHandler, 
+    GeminiClient: global.GeminiClient 
+  };
+}
+
 // Load initially
 loadChatState();
+loadServices();
 
-// Expose reload function for tests that need fresh state
-global.reloadChatState = loadChatState; 
+// Expose reload functions for tests that need fresh state
+global.reloadChatState = loadChatState;
+global.reloadServices = loadServices; 
