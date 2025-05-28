@@ -11,7 +11,10 @@ module.exports = {
   ],
   coverageDirectory: 'tests/coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  setupFilesAfterEnv: ['<rootDir>/tests/config/test-helpers.js'],
+  setupFilesAfterEnv: [
+    '<rootDir>/tests/config/test-helpers.js',
+    '<rootDir>/tests/unit/setup/load-models.js'
+  ],
   moduleNameMapper: {
     '\\.(css|less|scss)$': 'identity-obj-proxy',
     '\\.(gif|ttf|eot|svg|png)$': '<rootDir>/tests/__mocks__/fileMock.js'
