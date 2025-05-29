@@ -366,7 +366,9 @@ describe('ChatController', () => {
             window.ChatController.changeState(mockContainer, 'clear-chat');
 
             expect(global.confirm).toHaveBeenCalledWith('Clear all messages?');
-            expect(global.ChatUI.clearChat).toHaveBeenCalledWith(mockContainer);
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+                type: 'CLEAR_CONVERSATION'
+            });
         });
 
         it('does not clear chat when user cancels', () => {
@@ -375,7 +377,7 @@ describe('ChatController', () => {
             window.ChatController.changeState(mockContainer, 'clear-chat');
 
             expect(global.confirm).toHaveBeenCalledWith('Clear all messages?');
-            expect(global.ChatUI.clearChat).not.toHaveBeenCalled();
+            expect(global.chrome.runtime.sendMessage).not.toHaveBeenCalled();
         });
 
         it('ignores unknown actions', () => {

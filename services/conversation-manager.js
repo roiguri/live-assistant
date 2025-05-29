@@ -89,7 +89,10 @@ globalThis.ConversationManager = class ConversationManager {
     }
     
     clearConversation() {
-        this.errorHandler.debug('ConversationManager', 'clearConversation called');
-        // TODO: Implement in Step 8
+        this.messages = [];
+        this.saveToStorage();
+        this.broadcastUpdate();
+        
+        this.errorHandler.info('ConversationManager', 'Conversation cleared and broadcast');
     }
 };

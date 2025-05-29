@@ -102,7 +102,10 @@ window.ChatController = (function() {
           break;
         case 'clear-chat':
           if (confirm('Clear all messages?')) {
-            window.ChatUI.clearChat(container);
+            // Clear conversation via background to sync across all tabs
+            chrome.runtime.sendMessage({
+              type: 'CLEAR_CONVERSATION'
+            });
           }
           break;
       }

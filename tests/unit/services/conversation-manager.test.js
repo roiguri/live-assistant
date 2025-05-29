@@ -38,7 +38,7 @@ describe('ConversationManager', () => {
     });
   });
 
-  describe('Step 3: Storage Loading', () => {
+  describe('Storage Loading', () => {
     test('init method calls loadFromStorage and logs success', async () => {
       const mockMessages = [
         { id: '1', text: 'Hello', sender: 'user', timestamp: 123 },
@@ -374,6 +374,88 @@ describe('ConversationManager', () => {
     });
   });
   
-  // TODO: Add tests for each step as we implement
-  // Step 8: Clear conversation tests
+  describe('Clear conversation functionality', () => {
+    beforeEach(() => {
+      // Reset conversation manager state with some test messages
+      conversationManager.messages = [
+        { id: 'msg_1', text: 'Hello', sender: 'user', timestamp: 123 },
+        { id: 'msg_2', text: 'Hi there!', sender: 'ai', timestamp: 124 }
+      ];
+      chrome.storage.local.set.mockClear();
+      chrome.tabs.query.mockClear();
+      chrome.tabs.sendMessage.mockClear();
+    });
+
+    test('clearConversation empties messages array', () => {
+      expect(conversationManager.messages).toHaveLength(2);
+      
+      conversationManager.clearConversation();
+      
+      expect(conversationManager.messages).toHaveLength(0);
+      expect(conversationManager.messages).toEqual([]);
+    });
+
+    test('clearConversation saves empty state to storage', () => {
+      chrome.storage.local.set.mockResolvedValue();
+      
+      conversationManager.clearConversation();
+      
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+        conversation: [],
+        lastUpdated: expect.any(Number)
+      });
+    });
+
+    test('clearConversation broadcasts update to all tabs', () => {
+      const mockTabs = [
+        { id: 1, url: 'https://example.com' },
+        { id: 2, url: 'https://google.com' }
+      ];
+      
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback(mockTabs);
+      });
+      chrome.tabs.sendMessage.mockResolvedValue();
+      
+      conversationManager.clearConversation();
+      
+      expect(chrome.tabs.query).toHaveBeenCalledWith({}, expect.any(Function));
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'CONVERSATION_UPDATE',
+        messages: []
+      });
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
+        type: 'CONVERSATION_UPDATE',
+        messages: []
+      });
+    });
+
+    test('clearConversation handles storage errors gracefully', () => {
+      chrome.storage.local.set.mockRejectedValue(new Error('Storage full'));
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([]);
+      });
+      
+      expect(() => {
+        conversationManager.clearConversation();
+      }).not.toThrow();
+      
+      expect(conversationManager.messages).toHaveLength(0);
+    });
+
+    test('clearConversation handles broadcast errors gracefully', () => {
+      chrome.storage.local.set.mockResolvedValue();
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ id: 1 }]);
+      });
+      chrome.tabs.sendMessage.mockRejectedValue(new Error('Tab not found'));
+      
+      expect(() => {
+        conversationManager.clearConversation();
+      }).not.toThrow();
+      
+      expect(conversationManager.messages).toHaveLength(0);
+    });
+  });
 });

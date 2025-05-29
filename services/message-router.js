@@ -86,7 +86,17 @@ globalThis.MessageRouter = class MessageRouter {
         // CLEAR_CONVERSATION: Clear conversation history across all tabs
         // This will trigger clearing storage and broadcasting the update
         this.registerHandler('CLEAR_CONVERSATION', (message, sender, sendResponse) => {
-            this.errorHandler.debug('MessageRouter', 'CLEAR_CONVERSATION received');
+            try {
+                if (this.conversationManager) {
+                    this.conversationManager.clearConversation();
+                    this.errorHandler.debug('MessageRouter', 'CLEAR_CONVERSATION completed');
+                } else {
+                    this.errorHandler.debug('MessageRouter', 'CLEAR_CONVERSATION - no conversation manager');
+                }
+            } catch (error) {
+                this.errorHandler.error('MessageRouter', 'CLEAR_CONVERSATION failed', error.message);
+                // Continue gracefully - conversation clearing failure shouldn't break the UI
+            }
             sendResponse({ success: true });
         });
     }

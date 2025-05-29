@@ -492,4 +492,58 @@ describe('MessageRouter', () => {
             expect(sendResponse).toHaveBeenCalledWith({ messages: [] });
         });
     });
+
+    describe('Step 8: Clear conversation functionality', () => {
+        let mockConversationManager;
+
+        beforeEach(() => {
+            jest.clearAllMocks();
+            
+            mockConversationManager = {
+                addMessage: jest.fn().mockResolvedValue({ id: 'msg_123' }),
+                getConversation: jest.fn().mockReturnValue([]),
+                clearConversation: jest.fn()
+            };
+            
+            messageRouter.setConversationManager(mockConversationManager);
+        });
+
+        test('CLEAR_CONVERSATION calls conversationManager.clearConversation', async () => {
+            const sendResponse = jest.fn();
+            const message = { type: 'CLEAR_CONVERSATION' };
+            const sender = { tab: { id: 123 } };
+
+            await messageRouter.handleMessage(message, sender, sendResponse);
+
+            expect(mockConversationManager.clearConversation).toHaveBeenCalledWith();
+            expect(sendResponse).toHaveBeenCalledWith({ success: true });
+        });
+
+        test('CLEAR_CONVERSATION works without conversation manager', async () => {
+            messageRouter.setConversationManager(null);
+            const sendResponse = jest.fn();
+            const message = { type: 'CLEAR_CONVERSATION' };
+            const sender = { tab: { id: 123 } };
+
+            await messageRouter.handleMessage(message, sender, sendResponse);
+
+            expect(sendResponse).toHaveBeenCalledWith({ success: true });
+        });
+
+        test('CLEAR_CONVERSATION handles errors gracefully', async () => {
+            mockConversationManager.clearConversation.mockImplementation(() => {
+                throw new Error('Clear failed');
+            });
+            
+            const sendResponse = jest.fn();
+            const message = { type: 'CLEAR_CONVERSATION' };
+            const sender = { tab: { id: 123 } };
+
+            // Should not throw
+            await messageRouter.handleMessage(message, sender, sendResponse);
+
+            expect(mockConversationManager.clearConversation).toHaveBeenCalled();
+            expect(sendResponse).toHaveBeenCalledWith({ success: true });
+        });
+    });
 }); 
