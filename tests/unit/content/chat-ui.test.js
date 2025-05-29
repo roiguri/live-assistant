@@ -19,10 +19,14 @@ describe('ChatUI', () => {
 
     beforeEach(() => {
         global.window.ChatState = {
-            STATES: { MINIMAL: 'minimal', RECENT: 'recent', FULL: 'full' },
+            STATES: {
+                MINIMAL: 'minimal',
+                RECENT: 'recent',
+                FULL: 'full'
+            },
+            addObserver: jest.fn(),
             setState: jest.fn(),
-            addMessage: jest.fn(),
-            clearMessages: jest.fn(),
+            setMessages: jest.fn(),
             getState: jest.fn(),
             getLastMessage: jest.fn(),
             isMinimalState: jest.fn(),
@@ -68,7 +72,7 @@ describe('ChatUI', () => {
     });
 
     describe('addMessage', () => {
-        it('updates ChatState and DOM', () => {
+        it('updates DOM and handles state transitions', () => {
             const text = 'Hello world';
             const sender = 'user';
 
@@ -77,7 +81,6 @@ describe('ChatUI', () => {
 
             window.ChatUI.addMessage(mockContainer, text, sender);
 
-            expect(window.ChatState.addMessage).toHaveBeenCalledWith(text, sender);
             expect(window.ChatView.addMessageToDOM).toHaveBeenCalledWith(mockContainer, text, sender);
         });
 
@@ -179,7 +182,6 @@ describe('ChatUI', () => {
 
             window.ChatUI.clearChat(mockContainer);
 
-            expect(window.ChatState.clearMessages).toHaveBeenCalled();
             expect(window.ChatView.clearMessagesDOM).toHaveBeenCalledWith(mockContainer);
             expect(window.ChatState.setState).toHaveBeenCalledWith('minimal');
             expect(window.ChatView.updateState).toHaveBeenCalledWith(mockContainer);

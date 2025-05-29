@@ -4,17 +4,28 @@ importScripts('services/api-service.js');
 importScripts('services/gemini-client.js');
 importScripts('services/connection-manager.js');
 importScripts('services/message-router.js');
+importScripts('services/conversation-manager.js');
 
 const errorHandler = new globalThis.ErrorHandler();
 const apiService = new globalThis.ApiService();
 const connectionManager = new globalThis.ConnectionManager();
 const messageRouter = new globalThis.MessageRouter();
+const conversationManager = new globalThis.ConversationManager();
 
 // Set production log level (change to 'debug' for development)
 errorHandler.setLogLevel('info');
 
 // Connect the message router to the connection manager
 messageRouter.setupDefaultHandlers(connectionManager);
+
+// Connect the conversation manager to the message router
+messageRouter.setConversationManager(conversationManager);
+
+// Connect the conversation manager to the connection manager
+connectionManager.setConversationManager(conversationManager);
+
+// Connect the connection manager to the conversation manager (for context reset)
+conversationManager.setConnectionManager(connectionManager);
 
 // Initialize connection when extension starts
 chrome.runtime.onStartup.addListener(() => {

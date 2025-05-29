@@ -261,4 +261,182 @@ describe('ConnectionManager', () => {
       expect(mockSendResponse).toHaveBeenCalledWith({ success: false, error: 'Connection failed' });
     });
   });
+
+  describe('AI message storage', () => {
+    let mockConversationManager;
+
+    beforeEach(() => {
+      mockConversationManager = {
+        addMessage: jest.fn().mockResolvedValue({ id: 'msg_123' })
+      };
+      connectionManager.setConversationManager(mockConversationManager);
+    });
+
+    test('stores complete AI responses', () => {
+      const completeText = 'This is a complete AI response';
+      
+      connectionManager.sendResponseToContentScript(completeText, true);
+      
+      expect(mockConversationManager.addMessage).toHaveBeenCalledWith(
+        completeText, 
+        'ai', 
+        null
+      );
+    });
+
+    test('stores streaming AI responses when complete', () => {
+      // Send streaming chunks
+      connectionManager.sendResponseToContentScript('Hello ', false);
+      connectionManager.sendResponseToContentScript('world! ', false);
+      connectionManager.sendResponseToContentScript('How are you?', true);
+      
+      // Should only store once when complete
+      expect(mockConversationManager.addMessage).toHaveBeenCalledTimes(1);
+      expect(mockConversationManager.addMessage).toHaveBeenCalledWith(
+        'Hello world! How are you?', 
+        'ai', 
+        null
+      );
+    });
+
+    test('does not store incomplete AI responses', () => {
+      connectionManager.sendResponseToContentScript('Partial response', false);
+      
+      expect(mockConversationManager.addMessage).not.toHaveBeenCalled();
+    });
+
+    test('resets response tracking after completion', () => {
+      // First complete response
+      connectionManager.sendResponseToContentScript('First response', true);
+      
+      // Second response should start fresh
+      connectionManager.sendResponseToContentScript('Second ', false);
+      connectionManager.sendResponseToContentScript('response', true);
+      
+      expect(mockConversationManager.addMessage).toHaveBeenCalledTimes(2);
+      expect(mockConversationManager.addMessage).toHaveBeenNthCalledWith(
+        1, 'First response', 'ai', null
+      );
+      expect(mockConversationManager.addMessage).toHaveBeenNthCalledWith(
+        2, 'Second response', 'ai', null
+      );
+    });
+
+    test('handles missing conversation manager gracefully', () => {
+      connectionManager.setConversationManager(null);
+      
+      expect(() => {
+        connectionManager.sendResponseToContentScript('Test response', true);
+      }).not.toThrow();
+    });
+  });
+
+  describe('context reset', () => {
+    beforeEach(() => {
+      // Setup mock methods for testing
+      jest.spyOn(connectionManager, 'cleanupConnection').mockImplementation(() => {});
+      jest.spyOn(connectionManager, 'initializeConnection').mockImplementation(() => {});
+      jest.spyOn(connectionManager.errorHandler, 'info').mockImplementation(() => {});
+      
+      // Mock setTimeout globally
+      jest.spyOn(global, 'setTimeout').mockImplementation((fn, delay) => {
+        // Call the function immediately for testing
+        fn();
+        return 123; // Return a mock timer ID
+      });
+      
+      // Setup initial state for testing
+      connectionManager.currentResponse = 'Partial streaming response';
+      connectionManager.connectionState = {
+        websocket: 'connected',
+        lastError: 'Previous error',
+        reconnectAttempts: 3,
+        maxReconnectAttempts: 5,
+        reconnectDelay: 15000
+      };
+    });
+
+    afterEach(() => {
+      // Restore setTimeout
+      global.setTimeout.mockRestore();
+    });
+
+    test('resets all connection state and clears streaming response', () => {
+      connectionManager.resetContext();
+
+      // Verify streaming response is cleared
+      expect(connectionManager.currentResponse).toBe('');
+
+      // Verify connection cleanup is called
+      expect(connectionManager.cleanupConnection).toHaveBeenCalledTimes(1);
+
+      // Verify connection state is reset
+      expect(connectionManager.connectionState).toEqual({
+        websocket: 'disconnected',
+        lastError: null,
+        reconnectAttempts: 0,
+        maxReconnectAttempts: 5,
+        reconnectDelay: 5000
+      });
+
+      // Verify new connection is scheduled
+      expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 500);
+    });
+
+    test('logs context reset action', () => {
+      connectionManager.resetContext();
+
+      expect(connectionManager.errorHandler.info).toHaveBeenCalledWith(
+        'Connection', 
+        'Resetting Gemini conversation context'
+      );
+    });
+
+    test('schedules new connection after delay', () => {
+      connectionManager.resetContext();
+      
+      // Verify setTimeout was called with correct delay
+      expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 500);
+      
+      // Since we mock setTimeout to call the function immediately, 
+      // initializeConnection should have been called
+      expect(connectionManager.initializeConnection).toHaveBeenCalledTimes(1);
+    });
+
+    test('handles cleanup errors gracefully', () => {
+      connectionManager.cleanupConnection.mockImplementation(() => {
+        throw new Error('Cleanup failed');
+      });
+
+      // Should not throw because resetContext has try-catch around cleanup
+      expect(() => {
+        connectionManager.resetContext();
+      }).not.toThrow();
+
+      // Should still reset state even if cleanup fails
+      expect(connectionManager.currentResponse).toBe('');
+      expect(connectionManager.connectionState.websocket).toBe('disconnected');
+    });
+
+    test('resets state to defaults regardless of previous state', () => {
+      // Set extreme values to test reset
+      connectionManager.connectionState = {
+        websocket: 'failed',
+        lastError: 'Multiple connection failures',
+        reconnectAttempts: 10,
+        maxReconnectAttempts: 5,
+        reconnectDelay: 120000
+      };
+
+      connectionManager.resetContext();
+
+      expect(connectionManager.connectionState).toEqual({
+        websocket: 'disconnected',
+        lastError: null,
+        reconnectAttempts: 0,
+        maxReconnectAttempts: 5,
+        reconnectDelay: 5000
+      });
+    });
+  });
 }); 

@@ -22,19 +22,33 @@ window.ChatState = (function() {
         observers.forEach(callback => callback(type, data));
     }
     
-    function addMessage(text, sender = 'user') {
-        const message = { text, sender, timestamp: Date.now() };
-        messages.push(message);
-        notifyObservers('message-added', message);
-        return message;
-    }
-    
-    function clearMessages() {
-        messages = [];
-        notifyObservers('messages-cleared');
+    function setMessages(newMessages) {
+        messages = [...newMessages];
+        notifyObservers('messages-updated', { messages: newMessages });
     }
     
     function setState(newState) {
+        if (!STATES[newState.toUpperCase()]) return false;
+        
+        const oldState = currentState;
+        currentState = newState;
+        
+        // Sync state to background for cross-tab persistence
+        chrome.runtime.sendMessage({
+            type: 'SET_UI_STATE',
+            uiState: newState
+        }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.warn('Failed to sync UI state to background:', chrome.runtime.lastError.message);
+            }
+        });
+        
+        notifyObservers('state-changed', { oldState, newState });
+        return true;
+    }
+    
+    // Set state from background sync (without triggering another background update)
+    function setStateFromSync(newState) {
         if (!STATES[newState.toUpperCase()]) return false;
         
         const oldState = currentState;
@@ -55,6 +69,22 @@ window.ChatState = (function() {
         return messages[messages.length - 1] || null;
     }
     
+    // Load initial state from background
+    function loadInitialState() {
+        chrome.runtime.sendMessage({
+            type: 'GET_UI_STATE'
+        }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.warn('Failed to load initial UI state:', chrome.runtime.lastError.message);
+                return;
+            }
+            
+            if (response && response.uiState) {
+                setStateFromSync(response.uiState);
+            }
+        });
+    }
+    
     // State query convenience methods
     function isMinimalState() {
         return currentState === STATES.MINIMAL;
@@ -71,16 +101,17 @@ window.ChatState = (function() {
     // Public API
     return {
         STATES,
-        addMessage,
-        clearMessages,
+        setMessages,
         setState,
+        setStateFromSync, // For background sync updates
         getState,
         getMessages,
         getLastMessage,
         addObserver,
         isMinimalState,
         isRecentState,
-        isFullState
+        isFullState,
+        loadInitialState // Export for manual initialization
     };
     
 })(); 

@@ -167,7 +167,14 @@ describe('ChatController', () => {
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, message, 'user');
             expect(global.ChatUI.clearInput).toHaveBeenCalledWith(mockContainer);
             
-            // Verify message sent to background
+            // Verify user message stored in background
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+                type: 'ADD_MESSAGE',
+                text: message,
+                sender: 'user'
+            });
+            
+            // Verify message sent to AI for processing
             expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
                 type: 'SEND_TEXT_MESSAGE',
                 text: message
@@ -252,6 +259,22 @@ describe('ChatController', () => {
             
             // Verify no timeout is set for complete responses
             expect(global.setTimeout).not.toHaveBeenCalled();
+        });
+
+        it('stores AI message when streaming is finalized', () => {
+            const text = 'Streaming response';
+            
+            // Mock existing streaming element with final text
+            const mockStreamingElement = {
+                textContent: 'Complete streaming response'
+            };
+            global.ConnectionState.getStreamingElement.mockReturnValue(mockStreamingElement);
+
+            // Call receiveResponse with isComplete=true to trigger finalization
+            window.ChatController.receiveResponse(text, true);
+
+            // Verify streaming message is finalized
+            expect(global.MessageView.finalizeStreamingMessage).toHaveBeenCalledWith(mockStreamingElement);
         });
 
         it('updates UI states correctly during streaming', () => {
@@ -343,7 +366,9 @@ describe('ChatController', () => {
             window.ChatController.changeState(mockContainer, 'clear-chat');
 
             expect(global.confirm).toHaveBeenCalledWith('Clear all messages?');
-            expect(global.ChatUI.clearChat).toHaveBeenCalledWith(mockContainer);
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+                type: 'CLEAR_CONVERSATION'
+            });
         });
 
         it('does not clear chat when user cancels', () => {
@@ -352,7 +377,7 @@ describe('ChatController', () => {
             window.ChatController.changeState(mockContainer, 'clear-chat');
 
             expect(global.confirm).toHaveBeenCalledWith('Clear all messages?');
-            expect(global.ChatUI.clearChat).not.toHaveBeenCalled();
+            expect(global.chrome.runtime.sendMessage).not.toHaveBeenCalled();
         });
 
         it('ignores unknown actions', () => {
@@ -372,6 +397,13 @@ describe('ChatController', () => {
             // Verify system message is added immediately
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, 'Screenshot sent', 'system');
             
+            // Verify system message is stored in background
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+                type: 'ADD_MESSAGE',
+                text: 'Screenshot sent',
+                sender: 'system'
+            });
+            
             // Verify screenshot request is sent to background
             expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith(
                 { type: 'TAKE_SCREENSHOT' },
@@ -380,10 +412,12 @@ describe('ChatController', () => {
         });
 
         it('shows typing indicator on successful screenshot', () => {
-            // Mock successful response
-            const mockCallback = jest.fn();
+            // Mock sendMessage to handle both calls
             global.chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-                callback({ success: true });
+                // Only call callback for TAKE_SCREENSHOT (which has a callback)
+                if (message.type === 'TAKE_SCREENSHOT' && callback) {
+                    callback({ success: true });
+                }
             });
 
             window.ChatController.takeScreenshot(mockContainer);
@@ -393,15 +427,25 @@ describe('ChatController', () => {
         });
 
         it('shows error message on screenshot failure', () => {
-            // Mock failed response
+            // Mock sendMessage to handle both calls - TAKE_SCREENSHOT fails
             global.chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-                callback({ success: false });
+                if (message.type === 'TAKE_SCREENSHOT' && callback) {
+                    callback({ success: false });
+                }
             });
 
             window.ChatController.takeScreenshot(mockContainer);
 
-            // Verify error message is shown
+            // Verify error message is shown in UI
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, 'Screenshot failed', 'system');
+            
+            // Verify error message is stored in background
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+                type: 'ADD_MESSAGE',
+                text: 'Screenshot failed',
+                sender: 'system'
+            });
+            
             expect(global.MessageView.showTypingIndicator).not.toHaveBeenCalled();
         });
 
@@ -409,13 +453,23 @@ describe('ChatController', () => {
             // Mock chrome runtime error
             global.chrome.runtime.lastError = { message: 'Extension context invalidated' };
             global.chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-                callback();
+                if (message.type === 'TAKE_SCREENSHOT' && callback) {
+                    callback();
+                }
             });
 
             window.ChatController.takeScreenshot(mockContainer);
 
-            // Verify error message is shown
+            // Verify error message is shown in UI
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, 'Screenshot failed', 'system');
+            
+            // Verify error message is stored in background
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+                type: 'ADD_MESSAGE',
+                text: 'Screenshot failed',
+                sender: 'system'
+            });
+            
             expect(global.MessageView.showTypingIndicator).not.toHaveBeenCalled();
         });
     });
@@ -487,7 +541,8 @@ describe('ChatController', () => {
             // Verify both messages are processed
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, message1, 'user');
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, message2, 'user');
-            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledTimes(2);
+            // Each messagesends both ADD_MESSAGE and SEND_TEXT_MESSAGE (2 messages × 2 calls = 4 total)
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledTimes(4);
         });
 
         it('handles receiveResponse without typing indicator', () => {

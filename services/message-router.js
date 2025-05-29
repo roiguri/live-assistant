@@ -12,6 +12,9 @@ globalThis.MessageRouter = class MessageRouter {
         }
 
         // Register default message handlers
+        
+        // SEND_TEXT_MESSAGE: Send user text to AI for processing and response generation
+        // This triggers actual AI communication through the Gemini Live API
         this.registerHandler('SEND_TEXT_MESSAGE', (message, sender) => {
             if (this.connectionManager) {
                 this.connectionManager.handleTextMessage(message.text, sender.tab.id);
@@ -45,6 +48,94 @@ globalThis.MessageRouter = class MessageRouter {
                 sendResponse({ success: true });
             }
         });
+
+        // ADD_MESSAGE: Add message to conversation history
+        // This will trigger adding the message to the conversation manager
+        this.registerHandler('ADD_MESSAGE', async (message, sender, sendResponse) => {
+            if (this.conversationManager) {
+                try {
+                    await this.conversationManager.addMessage(
+                        message.text, 
+                        message.sender, 
+                        sender.tab.id
+                    );
+                } catch (error) {
+                    this.errorHandler.error('MessageRouter', 'ADD_MESSAGE failed', error.message);
+                    // Continue gracefully - conversation storage failure shouldn't break the UI
+                }
+            }
+            sendResponse({ success: true });
+        });
+
+        // GET_CONVERSATION: Retrieve conversation history for displaying in new tabs
+        // This loads stored messages when a tab is opened or refreshed
+        this.registerHandler('GET_CONVERSATION', (message, sender, sendResponse) => {
+            if (this.conversationManager) {
+                const limit = message.limit || 50;
+                const messages = this.conversationManager.getConversation(limit);
+                sendResponse({ messages });
+                this.errorHandler.debug('MessageRouter', 'GET_CONVERSATION sent', {
+                    messageCount: messages.length, limit
+                });
+            } else {
+                sendResponse({ messages: [] });
+                this.errorHandler.debug('MessageRouter', 'GET_CONVERSATION - no conversation manager');
+            }
+        });
+
+        // CLEAR_CONVERSATION: Clear conversation history across all tabs
+        // This will trigger clearing storage and broadcasting the update
+        this.registerHandler('CLEAR_CONVERSATION', (message, sender, sendResponse) => {
+            try {
+                if (this.conversationManager) {
+                    this.conversationManager.clearConversation();
+                    this.errorHandler.debug('MessageRouter', 'CLEAR_CONVERSATION completed');
+                } else {
+                    this.errorHandler.debug('MessageRouter', 'CLEAR_CONVERSATION - no conversation manager');
+                }
+            } catch (error) {
+                this.errorHandler.error('MessageRouter', 'CLEAR_CONVERSATION failed', error.message);
+                // Continue gracefully - conversation clearing failure shouldn't break the UI
+            }
+            sendResponse({ success: true });
+        });
+
+        // SET_UI_STATE: Update UI state across all tabs
+        // This will trigger storing the state and broadcasting to all tabs
+        this.registerHandler('SET_UI_STATE', async (message, sender, sendResponse) => {
+            try {
+                if (this.conversationManager) {
+                    const success = await this.conversationManager.setUIState(message.uiState);
+                    this.errorHandler.debug('MessageRouter', 'SET_UI_STATE completed', {
+                        uiState: message.uiState,
+                        success
+                    });
+                    sendResponse({ success });
+                } else {
+                    this.errorHandler.debug('MessageRouter', 'SET_UI_STATE - no conversation manager');
+                    sendResponse({ success: false });
+                }
+            } catch (error) {
+                this.errorHandler.error('MessageRouter', 'SET_UI_STATE failed', error.message);
+                sendResponse({ success: false, error: error.message });
+            }
+            return true; // Keep response channel open for async operation
+        });
+
+        // GET_UI_STATE: Retrieve current UI state for new tabs
+        // This loads the stored UI state when a tab is opened or refreshed
+        this.registerHandler('GET_UI_STATE', (message, sender, sendResponse) => {
+            if (this.conversationManager) {
+                const uiState = this.conversationManager.getUIState();
+                sendResponse({ uiState });
+                this.errorHandler.debug('MessageRouter', 'GET_UI_STATE sent', {
+                    uiState
+                });
+            } else {
+                sendResponse({ uiState: 'minimal' });
+                this.errorHandler.debug('MessageRouter', 'GET_UI_STATE - no conversation manager, defaulting to minimal');
+            }
+        });
     }
 
     registerHandler(messageType, handler) {
@@ -58,7 +149,11 @@ globalThis.MessageRouter = class MessageRouter {
             try {
                 const result = handler(message, sender, sendResponse);
                 // Return true if handler needs to keep response channel open
-                return result === true;
+                // Handle both sync handlers returning true and async handlers
+                if (result === true || (result && typeof result.then === 'function')) {
+                    return true;
+                }
+                return false;
             } catch (error) {
                 this.errorHandler.error('MessageRouter', `Error handling ${message.type}`, error.message);
                 if (sendResponse) {
@@ -92,5 +187,9 @@ globalThis.MessageRouter = class MessageRouter {
                 // Ignore errors for tabs without content script
             });
         }
+    }
+
+    setConversationManager(conversationManager) {
+        this.conversationManager = conversationManager;
     }
 };

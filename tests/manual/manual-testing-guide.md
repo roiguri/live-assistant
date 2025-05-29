@@ -287,9 +287,14 @@
 - [ ] **Expected:** No conflicts or errors
 
 #### 6.5 Page Navigation
-- [ ] Start conversation on one page
-- [ ] Navigate to different page
-- [ ] **Expected:** Chat reappears, conversation may reset (expected)
+- [ ] Open 2 tabs
+- [ ] Start conversation on one tab
+- [ ] Navigate to second tab
+- [ ] **Expected:** Chat appears on second tab with chat history.
+- [ ] Create new tab
+- [ ] **Expected:** Chat loads all history (same as both opened tabs).
+- [ ] Clear converation and close chat to minimal view.
+- [ ] **Expected:** Chat should be clear and minimal in all tabs.
 - [ ] Use keyboard shortcuts on new page
 - [ ] **Expected:** Shortcuts work correctly
 

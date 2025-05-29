@@ -4,7 +4,7 @@ describe('ChatState', () => {
   
   // Helper function to reset state for tests that need clean slate
   function resetChatState() {
-    window.ChatState.clearMessages();
+    window.ChatState.setMessages([]); // Use setMessages instead of clearMessages
     window.ChatState.setState('minimal');
   }
   
@@ -20,43 +20,47 @@ describe('ChatState', () => {
     });
   });
 
-  describe('addMessage', () => {
+  describe('setMessages', () => {
     beforeEach(() => {
       resetChatState();
       mockObserver = jest.fn();
       window.ChatState.addObserver(mockObserver);
     });
 
-    it('should store message correctly with all properties', () => {
-      const testText = 'Hello world';
-      const testSender = 'user';
+    it('should update messages array correctly', () => {
+      const testMessages = [
+        { text: 'Hello', sender: 'user', timestamp: Date.now() },
+        { text: 'Hi there!', sender: 'ai', timestamp: Date.now() + 1000 }
+      ];
       
-      const result = window.ChatState.addMessage(testText, testSender);
-      
-      expect(result).toMatchObject({
-        text: testText,
-        sender: testSender,
-        timestamp: expect.any(Number)
-      });
+      window.ChatState.setMessages(testMessages);
       
       const messages = window.ChatState.getMessages();
-      expect(messages).toHaveLength(1);
-      expect(messages[0]).toEqual(result);
+      expect(messages).toHaveLength(2);
+      expect(messages).toEqual(testMessages);
     });
 
-    it('should default sender to "user" when not specified', () => {
-      const result = window.ChatState.addMessage('Test message');
+    it('should notify observers when messages are updated', () => {
+      const testMessages = [
+        { text: 'Test message', sender: 'user', timestamp: Date.now() }
+      ];
       
-      expect(result.sender).toBe('user');
+      window.ChatState.setMessages(testMessages);
+      
+      expect(mockObserver).toHaveBeenCalledWith('messages-updated', { messages: testMessages });
     });
 
-    it('should generate timestamp close to current time', () => {
-      const beforeTime = Date.now();
-      const result = window.ChatState.addMessage('Test');
-      const afterTime = Date.now();
+    it('should handle empty messages array', () => {
+      // First add some messages
+      window.ChatState.setMessages([
+        { text: 'Message 1', sender: 'user', timestamp: Date.now() }
+      ]);
       
-      expect(result.timestamp).toBeGreaterThanOrEqual(beforeTime);
-      expect(result.timestamp).toBeLessThanOrEqual(afterTime);
+      // Then clear them
+      window.ChatState.setMessages([]);
+      
+      expect(window.ChatState.getMessages()).toHaveLength(0);
+      expect(window.ChatState.getLastMessage()).toBeNull();
     });
   });
 
@@ -110,36 +114,18 @@ describe('ChatState', () => {
     });
 
     it('should return correct last message', () => {
-      window.ChatState.addMessage('First message', 'user');
-      window.ChatState.addMessage('Second message', 'ai');
-      const lastMessage = window.ChatState.addMessage('Last message', 'user');
+      const messages = [
+        { text: 'First message', sender: 'user', timestamp: Date.now() },
+        { text: 'Second message', sender: 'ai', timestamp: Date.now() + 1000 },
+        { text: 'Last message', sender: 'user', timestamp: Date.now() + 2000 }
+      ];
       
-      expect(window.ChatState.getLastMessage()).toEqual(lastMessage);
+      window.ChatState.setMessages(messages);
+      
+      expect(window.ChatState.getLastMessage()).toEqual(messages[2]);
     });
 
     it('should return null when no messages exist', () => {
-      expect(window.ChatState.getLastMessage()).toBeNull();
-    });
-  });
-
-  describe('clearMessages', () => {
-    beforeEach(() => {
-      resetChatState();
-      mockObserver = jest.fn();
-      window.ChatState.addObserver(mockObserver);
-    });
-
-    it('should empty messages array completely', () => {
-      // Add some messages
-      window.ChatState.addMessage('Message 1', 'user');
-      window.ChatState.addMessage('Message 2', 'ai');
-      window.ChatState.addMessage('Message 3', 'user');
-      
-      expect(window.ChatState.getMessages()).toHaveLength(3);
-      
-      window.ChatState.clearMessages();
-      
-      expect(window.ChatState.getMessages()).toHaveLength(0);
       expect(window.ChatState.getLastMessage()).toBeNull();
     });
   });
@@ -151,20 +137,14 @@ describe('ChatState', () => {
       window.ChatState.addObserver(mockObserver);
     });
 
-    it('should notify observers when message is added', () => {
-      const message = window.ChatState.addMessage('Test message', 'user');
+    it('should notify observers when messages are updated', () => {
+      const testMessages = [
+        { text: 'Test message', sender: 'user', timestamp: Date.now() }
+      ];
       
-      expect(mockObserver).toHaveBeenCalledWith('message-added', message);
-    });
-
-    it('should notify observers when messages are cleared', () => {
-      window.ChatState.addMessage('Test message');
-      mockObserver.mockClear(); // Clear previous calls
+      window.ChatState.setMessages(testMessages);
       
-      window.ChatState.clearMessages();
-      
-      expect(mockObserver).toHaveBeenCalledWith('messages-cleared', undefined);
-      expect(mockObserver).toHaveBeenCalledTimes(1);
+      expect(mockObserver).toHaveBeenCalledWith('messages-updated', { messages: testMessages });
     });
 
     it('should notify observers when state changes', () => {
@@ -182,7 +162,8 @@ describe('ChatState', () => {
       const secondObserver = jest.fn();
       window.ChatState.addObserver(secondObserver);
       
-      window.ChatState.addMessage('Test');
+      const testMessages = [{ text: 'Test', sender: 'user', timestamp: Date.now() }];
+      window.ChatState.setMessages(testMessages);
       
       expect(mockObserver).toHaveBeenCalled();
       expect(secondObserver).toHaveBeenCalled();
@@ -225,30 +206,56 @@ describe('ChatState', () => {
     });
 
     it('should return copy of messages to prevent external modification', () => {
-      window.ChatState.addMessage('Original message', 'user');
+      const originalMessages = [
+        { text: 'Original message', sender: 'user', timestamp: Date.now() }
+      ];
       
-      const messages = window.ChatState.getMessages();
-      messages.push({ text: 'Injected message', sender: 'hacker' });
+      window.ChatState.setMessages(originalMessages);
       
-      // Original messages should be unchanged
+      const returnedMessages = window.ChatState.getMessages();
+      returnedMessages.push({ text: 'Hacked message', sender: 'hacker' });
+      
+      // Original state should be unchanged
       expect(window.ChatState.getMessages()).toHaveLength(1);
       expect(window.ChatState.getMessages()[0].text).toBe('Original message');
     });
+
+    it('should create new array when setting messages', () => {
+      const testMessages = [
+        { text: 'Old message 1', sender: 'user', timestamp: Date.now() },
+        { text: 'Old message 2', sender: 'ai', timestamp: Date.now() + 1000 }
+      ];
+      
+      window.ChatState.setMessages(testMessages);
+      
+      // Modify original array
+      testMessages.push({ text: 'New message', sender: 'user', timestamp: Date.now() + 2000 });
+      
+      // ChatState should be unaffected
+      expect(window.ChatState.getMessages()).toHaveLength(2);
+    });
   });
 
-  describe('STATES constants', () => {
-    beforeEach(() => {
-      resetChatState();
-      mockObserver = jest.fn();
-      window.ChatState.addObserver(mockObserver);
+  describe('STATES constant', () => {
+    it('should export all required state constants', () => {
+      expect(window.ChatState.STATES.MINIMAL).toBe('minimal');
+      expect(window.ChatState.STATES.RECENT).toBe('recent');
+      expect(window.ChatState.STATES.FULL).toBe('full');
     });
+  });
 
-    it('should expose correct state constants', () => {
-      expect(window.ChatState.STATES).toEqual({
-        MINIMAL: 'minimal',
-        RECENT: 'recent',
-        FULL: 'full'
-      });
+  describe('API completeness', () => {
+    it('should export all required public methods', () => {
+      // Note: addMessage and clearMessages removed for background integration
+      expect(typeof window.ChatState.setMessages).toBe('function');
+      expect(typeof window.ChatState.setState).toBe('function');
+      expect(typeof window.ChatState.getState).toBe('function');
+      expect(typeof window.ChatState.getMessages).toBe('function');
+      expect(typeof window.ChatState.getLastMessage).toBe('function');
+      expect(typeof window.ChatState.addObserver).toBe('function');
+      expect(typeof window.ChatState.isMinimalState).toBe('function');
+      expect(typeof window.ChatState.isRecentState).toBe('function');
+      expect(typeof window.ChatState.isFullState).toBe('function');
     });
   });
 }); 

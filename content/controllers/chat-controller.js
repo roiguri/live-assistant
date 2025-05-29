@@ -10,11 +10,20 @@ window.ChatController = (function() {
       // Finalize any existing response and reset state
       finalizeCurrentResponse();
       
-      // Add user message to UI
+      // Add user message to UI immediately
       window.ChatUI.addMessage(container, message, 'user');
       window.ChatUI.clearInput(container);
       
-      // Send to background script → Gemini Live API
+      // Store user message in background for conversation history and cross-tab sync
+      // This saves the message to persistent storage and enables shared mode
+      chrome.runtime.sendMessage({
+        type: 'ADD_MESSAGE',
+        text: message,
+        sender: 'user'
+      });
+      
+      // Send to AI for processing and response generation
+      // This triggers the actual AI communication through Gemini Live API
       chrome.runtime.sendMessage({
         type: 'SEND_TEXT_MESSAGE',
         text: message
@@ -93,7 +102,10 @@ window.ChatController = (function() {
           break;
         case 'clear-chat':
           if (confirm('Clear all messages?')) {
-            window.ChatUI.clearChat(container);
+            // Clear conversation via background to sync across all tabs
+            chrome.runtime.sendMessage({
+              type: 'CLEAR_CONVERSATION'
+            });
           }
           break;
       }
@@ -102,6 +114,7 @@ window.ChatController = (function() {
     function finalizeCurrentResponse() {
       const currentResponseElement = ConnectionState.getStreamingElement();
       if (currentResponseElement) {
+        // Finalize the streaming message in the UI
         MessageView.finalizeStreamingMessage(currentResponseElement);
       }
       
@@ -113,12 +126,26 @@ window.ChatController = (function() {
       // Add system message immediately
       window.ChatUI.addMessage(container, 'Screenshot sent', 'system');
       
+      // Store system message in background for conversation history and cross-tab sync
+      chrome.runtime.sendMessage({
+        type: 'ADD_MESSAGE',
+        text: 'Screenshot sent',
+        sender: 'system'
+      });
+      
       // Send screenshot request to background script
       chrome.runtime.sendMessage({
         type: 'TAKE_SCREENSHOT'
       }, (response) => {
         if (chrome.runtime.lastError || !response?.success) {
           window.ChatUI.addMessage(container, 'Screenshot failed', 'system');
+          
+          // Store error message in background for conversation history and cross-tab sync
+          chrome.runtime.sendMessage({
+            type: 'ADD_MESSAGE',
+            text: 'Screenshot failed',
+            sender: 'system'
+          });
         } else {
           // Show typing indicator for AI response
           MessageView.showTypingIndicator(container);
