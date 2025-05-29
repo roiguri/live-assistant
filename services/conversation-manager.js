@@ -153,9 +153,9 @@ globalThis.ConversationManager = class ConversationManager {
         return this.messages.slice(-limit);
     }
     
-    clearConversation() {
+    async clearConversation() {
         this.messages = [];
-        this.saveToStorage();
+        await this.saveToStorage();
         this.broadcastUpdate();
         
         // Reset Gemini conversation context to start fresh

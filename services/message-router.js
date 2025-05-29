@@ -149,8 +149,11 @@ globalThis.MessageRouter = class MessageRouter {
             try {
                 const result = handler(message, sender, sendResponse);
                 // Return true if handler needs to keep response channel open
-                // This includes both explicit `return true` and async functions (which return Promises)
-                return result === true || result instanceof Promise;
+                // Handle both sync handlers returning true and async handlers
+                if (result === true || (result && typeof result.then === 'function')) {
+                    return true;
+                }
+                return false;
             } catch (error) {
                 this.errorHandler.error('MessageRouter', `Error handling ${message.type}`, error.message);
                 if (sendResponse) {

@@ -437,7 +437,7 @@ describe('ConversationManager', () => {
       });
     });
 
-    test('clearConversation broadcasts update to all tabs', () => {
+    test('clearConversation broadcasts update to all tabs', async () => {
       const mockTabs = [
         { id: 1, url: 'https://example.com' },
         { id: 2, url: 'https://google.com' }
@@ -448,7 +448,7 @@ describe('ConversationManager', () => {
       });
       mockChrome.tabs.sendMessage.mockResolvedValue();
       
-      conversationManager.clearConversation();
+      await conversationManager.clearConversation();
       
       expect(mockChrome.tabs.query).toHaveBeenCalledWith({}, expect.any(Function));
       expect(mockChrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
@@ -462,28 +462,28 @@ describe('ConversationManager', () => {
       });
     });
 
-    test('clearConversation handles storage errors gracefully', () => {
+    test('clearConversation handles storage errors gracefully', async () => {
       mockChrome.storage.local.set.mockRejectedValue(new Error('Storage full'));
       mockChrome.tabs.query.mockImplementation((query, callback) => {
         callback([]);
       });
       
-      expect(() => {
-        conversationManager.clearConversation();
+      await expect(async () => {
+        await conversationManager.clearConversation();
       }).not.toThrow();
       
       expect(conversationManager.messages).toHaveLength(0);
     });
 
-    test('clearConversation handles broadcast errors gracefully', () => {
+    test('clearConversation handles broadcast errors gracefully', async () => {
       mockChrome.storage.local.set.mockResolvedValue();
       mockChrome.tabs.query.mockImplementation((query, callback) => {
         callback([{ id: 1 }]);
       });
       mockChrome.tabs.sendMessage.mockRejectedValue(new Error('Tab not found'));
       
-      expect(() => {
-        conversationManager.clearConversation();
+      await expect(async () => {
+        await conversationManager.clearConversation();
       }).not.toThrow();
       
       expect(conversationManager.messages).toHaveLength(0);
@@ -497,9 +497,6 @@ describe('ConversationManager', () => {
                 { id: 'msg_1', text: 'Hello', sender: 'user', timestamp: 123 },
                 { id: 'msg_2', text: 'Hi there!', sender: 'ai', timestamp: 124 }
             ];
-            mockChrome.storage.local.set.mockClear();
-            mockChrome.tabs.query.mockClear();
-            mockChrome.tabs.sendMessage.mockClear();
 
             mockConnectionManager = {
                 resetContext: jest.fn()
@@ -520,7 +517,7 @@ describe('ConversationManager', () => {
             });
             mockChrome.tabs.sendMessage.mockResolvedValue();
             
-            conversationManager.clearConversation();
+            await conversationManager.clearConversation();
             
             // Verify conversation is cleared
             expect(conversationManager.messages).toEqual([]);
@@ -541,10 +538,14 @@ describe('ConversationManager', () => {
             mockChrome.tabs.query.mockImplementation((query, callback) => {
                 callback([{ id: 1 }]);
             });
+            mockChrome.tabs.sendMessage.mockResolvedValue();
             
-            expect(() => {
-                conversationManager.clearConversation();
+            await expect(async () => {
+                await conversationManager.clearConversation();
             }).not.toThrow();
+            
+            // Add a small delay to let async operations complete
+            await new Promise(resolve => setTimeout(resolve, 10));
             
             // Verify conversation is still cleared
             expect(conversationManager.messages).toEqual([]);
@@ -562,13 +563,16 @@ describe('ConversationManager', () => {
             
             mockChrome.storage.local.set.mockResolvedValue();
             mockChrome.tabs.query.mockImplementation((query, callback) => {
-                callback([]);
+                callback([{ id: 1 }]); // Changed from [] to [{ id: 1 }] so sendMessage gets called
             });
             mockChrome.tabs.sendMessage.mockResolvedValue();
             
-            expect(() => {
-                conversationManager.clearConversation();
+            await expect(async () => {
+                await conversationManager.clearConversation();
             }).not.toThrow();
+            
+            // Add a small delay to let async operations complete
+            await new Promise(resolve => setTimeout(resolve, 10));
             
             // Verify conversation is still cleared even if reset fails
             expect(conversationManager.messages).toEqual([]);
