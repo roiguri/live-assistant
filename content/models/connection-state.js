@@ -77,6 +77,10 @@ window.ConnectionState = (function() {
         notifyObservers('state-reset');
     }
     
+    function clearObservers() {
+        observers = [];
+    }
+    
     // Convenience methods for cleaner code
     function hasActiveTyping() {
         return isTyping();
@@ -100,7 +104,8 @@ window.ConnectionState = (function() {
         setResponseTimeout,
         clearResponseTimeout,
         reset,
-        addObserver
+        addObserver,
+        clearObservers
     };
     
 })();
