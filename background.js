@@ -4,6 +4,7 @@ importScripts('services/api-service.js');
 importScripts('services/gemini-client.js');
 importScripts('services/connection-manager.js');
 importScripts('services/message-router.js');
+importScripts('services/conversation-manager.js');
 
 const errorHandler = new globalThis.ErrorHandler();
 const apiService = new globalThis.ApiService();
