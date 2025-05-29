@@ -226,7 +226,10 @@ describe('MessageRouter', () => {
                 'TAKE_SCREENSHOT',
                 'GET_CONNECTION_STATUS',
                 'MANUAL_RECONNECT',
-                'PROMPT_UPDATED'
+                'PROMPT_UPDATED',
+                'ADD_MESSAGE',
+                'GET_CONVERSATION',
+                'CLEAR_CONVERSATION'
             ];
             
             expectedHandlers.forEach(handlerType => {
@@ -322,6 +325,39 @@ describe('MessageRouter', () => {
             expect(() => {
                 router.handleMessage(message, sender, sendResponse);
             }).not.toThrow();
+        });
+
+        it('should handle ADD_MESSAGE correctly', () => {
+            const message = { type: 'ADD_MESSAGE', text: 'Hello', sender: 'user' };
+            const sender = { tab: { id: 123 } };
+            const sendResponse = jest.fn();
+            
+            messageRouter.handleMessage(message, sender, sendResponse);
+            
+            expect(sendResponse).toHaveBeenCalledWith({ 
+                success: true, 
+                message: 'Handler registered' 
+            });
+        });
+
+        it('should handle GET_CONVERSATION correctly', () => {
+            const message = { type: 'GET_CONVERSATION' };
+            const sender = { tab: { id: 456 } };
+            const sendResponse = jest.fn();
+            
+            messageRouter.handleMessage(message, sender, sendResponse);
+            
+            expect(sendResponse).toHaveBeenCalledWith({ messages: [] });
+        });
+
+        it('should handle CLEAR_CONVERSATION correctly', () => {
+            const message = { type: 'CLEAR_CONVERSATION' };
+            const sender = { tab: { id: 789 } };
+            const sendResponse = jest.fn();
+            
+            messageRouter.handleMessage(message, sender, sendResponse);
+            
+            expect(sendResponse).toHaveBeenCalledWith({ success: true });
         });
     });
 }); 

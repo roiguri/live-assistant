@@ -10,6 +10,7 @@ const errorHandler = new globalThis.ErrorHandler();
 const apiService = new globalThis.ApiService();
 const connectionManager = new globalThis.ConnectionManager();
 const messageRouter = new globalThis.MessageRouter();
+const conversationManager = new globalThis.ConversationManager();
 
 // Set production log level (change to 'debug' for development)
 errorHandler.setLogLevel('info');

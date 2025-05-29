@@ -45,6 +45,21 @@ globalThis.MessageRouter = class MessageRouter {
                 sendResponse({ success: true });
             }
         });
+        this.registerHandler('ADD_MESSAGE', (message, sender, sendResponse) => {
+            this.errorHandler.debug('MessageRouter', 'ADD_MESSAGE received', message);
+            // TODO: Connect to conversation manager in next step
+            sendResponse({ success: true, message: 'Handler registered' });
+        });
+
+        this.registerHandler('GET_CONVERSATION', (message, sender, sendResponse) => {
+            this.errorHandler.debug('MessageRouter', 'GET_CONVERSATION received');
+            sendResponse({ messages: [] }); // Empty for now
+        });
+
+        this.registerHandler('CLEAR_CONVERSATION', (message, sender, sendResponse) => {
+            this.errorHandler.debug('MessageRouter', 'CLEAR_CONVERSATION received');
+            sendResponse({ success: true });
+        });
     }
 
     registerHandler(messageType, handler) {
