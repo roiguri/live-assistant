@@ -67,20 +67,30 @@ globalThis.ConversationManager = class ConversationManager {
     }
     
     broadcastUpdate() {
-        chrome.tabs.query({}, (tabs) => {
-            tabs.forEach(tab => {
-                chrome.tabs.sendMessage(tab.id, {
-                    type: 'CONVERSATION_UPDATE',
-                    messages: this.messages
-                }).catch(() => {
-                    // Ignore tabs without content script
+        try {
+            chrome.tabs.query({}, (tabs) => {
+                if (chrome.runtime.lastError) {
+                    this.errorHandler.error('ConversationManager', 'Broadcast query failed', chrome.runtime.lastError.message);
+                    return;
+                }
+                
+                tabs.forEach(tab => {
+                    chrome.tabs.sendMessage(tab.id, {
+                        type: 'CONVERSATION_UPDATE',
+                        messages: this.messages
+                    }).catch(() => {
+                        // Silently ignore - tab might not have content script
+                    });
+                });
+                
+                this.errorHandler.debug('ConversationManager', 'Broadcast sent to all tabs', {
+                    messageCount: this.messages.length,
+                    tabCount: tabs.length
                 });
             });
-        });
-        
-        this.errorHandler.debug('ConversationManager', 'Broadcast sent to all tabs', {
-            messageCount: this.messages.length
-        });
+        } catch (error) {
+            this.errorHandler.error('ConversationManager', 'Broadcast failed', error.message);
+        }
     }
     
     getConversation(limit = 50) {

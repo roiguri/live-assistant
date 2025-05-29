@@ -317,8 +317,6 @@ window.ChatEvents = (function() {
     
     // Update display
     updateChatDisplay(container, messages);
-    
-    console.debug('Conversation updated:', messages.length, 'messages');
   }
 
   function updateChatDisplay(container, messages) {

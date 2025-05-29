@@ -801,9 +801,6 @@ describe('ChatEvents', () => {
 
             // Verify response was sent
             expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
-            
-            // Verify debug logging
-            expect(global.console.debug).toHaveBeenCalledWith('Conversation updated:', 2, 'messages');
         });
 
         it('should update chat display correctly', () => {

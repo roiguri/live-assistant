@@ -18,10 +18,7 @@ window.ChatUI = (function() {
     
 
     
-    function addMessage(container, text, sender = 'user') {
-      // Store message in ChatState
-      ChatState.addMessage(text, sender);
-      
+    function addMessage(container, text, sender = 'user') {      
       // Add to DOM via view layer
       ChatView.addMessageToDOM(container, text, sender);
       
@@ -59,7 +56,8 @@ window.ChatUI = (function() {
     }
     
     function clearChat(container) {
-      ChatState.clearMessages();
+      // Note: Conversation clearing now handled by background ConversationManager
+      // This function is only used for local UI clearing during conversation updates
       ChatView.clearMessagesDOM(container);
       setState(container, STATES.MINIMAL);
     }

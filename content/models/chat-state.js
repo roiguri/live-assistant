@@ -22,18 +22,6 @@ window.ChatState = (function() {
         observers.forEach(callback => callback(type, data));
     }
     
-    function addMessage(text, sender = 'user') {
-        const message = { text, sender, timestamp: Date.now() };
-        messages.push(message);
-        notifyObservers('message-added', message);
-        return message;
-    }
-    
-    function clearMessages() {
-        messages = [];
-        notifyObservers('messages-cleared');
-    }
-    
     function setMessages(newMessages) {
         messages = [...newMessages];
         notifyObservers('messages-updated', { messages: newMessages });
@@ -76,8 +64,6 @@ window.ChatState = (function() {
     // Public API
     return {
         STATES,
-        addMessage,
-        clearMessages,
         setMessages,
         setState,
         getState,
