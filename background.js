@@ -21,6 +21,9 @@ messageRouter.setupDefaultHandlers(connectionManager);
 // Connect the conversation manager to the message router
 messageRouter.setConversationManager(conversationManager);
 
+// Connect the conversation manager to the connection manager
+connectionManager.setConversationManager(conversationManager);
+
 // Initialize connection when extension starts
 chrome.runtime.onStartup.addListener(() => {
   errorHandler.info('Background', 'Extension startup - initializing connection');

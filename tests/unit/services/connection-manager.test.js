@@ -261,4 +261,73 @@ describe('ConnectionManager', () => {
       expect(mockSendResponse).toHaveBeenCalledWith({ success: false, error: 'Connection failed' });
     });
   });
+
+  describe('AI message storage', () => {
+    let mockConversationManager;
+
+    beforeEach(() => {
+      mockConversationManager = {
+        addMessage: jest.fn().mockResolvedValue({ id: 'msg_123' })
+      };
+      connectionManager.setConversationManager(mockConversationManager);
+    });
+
+    test('stores complete AI responses', () => {
+      const completeText = 'This is a complete AI response';
+      
+      connectionManager.sendResponseToContentScript(completeText, true);
+      
+      expect(mockConversationManager.addMessage).toHaveBeenCalledWith(
+        completeText, 
+        'ai', 
+        null
+      );
+    });
+
+    test('stores streaming AI responses when complete', () => {
+      // Send streaming chunks
+      connectionManager.sendResponseToContentScript('Hello ', false);
+      connectionManager.sendResponseToContentScript('world! ', false);
+      connectionManager.sendResponseToContentScript('How are you?', true);
+      
+      // Should only store once when complete
+      expect(mockConversationManager.addMessage).toHaveBeenCalledTimes(1);
+      expect(mockConversationManager.addMessage).toHaveBeenCalledWith(
+        'Hello world! How are you?', 
+        'ai', 
+        null
+      );
+    });
+
+    test('does not store incomplete AI responses', () => {
+      connectionManager.sendResponseToContentScript('Partial response', false);
+      
+      expect(mockConversationManager.addMessage).not.toHaveBeenCalled();
+    });
+
+    test('resets response tracking after completion', () => {
+      // First complete response
+      connectionManager.sendResponseToContentScript('First response', true);
+      
+      // Second response should start fresh
+      connectionManager.sendResponseToContentScript('Second ', false);
+      connectionManager.sendResponseToContentScript('response', true);
+      
+      expect(mockConversationManager.addMessage).toHaveBeenCalledTimes(2);
+      expect(mockConversationManager.addMessage).toHaveBeenNthCalledWith(
+        1, 'First response', 'ai', null
+      );
+      expect(mockConversationManager.addMessage).toHaveBeenNthCalledWith(
+        2, 'Second response', 'ai', null
+      );
+    });
+
+    test('handles missing conversation manager gracefully', () => {
+      connectionManager.setConversationManager(null);
+      
+      expect(() => {
+        connectionManager.sendResponseToContentScript('Test response', true);
+      }).not.toThrow();
+    });
+  });
 }); 

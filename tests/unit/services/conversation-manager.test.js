@@ -129,7 +129,7 @@ describe('ConversationManager', () => {
     });
   });
   
-  describe('Step 5: Add message functionality', () => {
+  describe('Add message functionality', () => {
     beforeEach(() => {
       // Reset conversation manager state
       conversationManager.messages = [];
@@ -235,7 +235,7 @@ describe('ConversationManager', () => {
     });
   });
   
-  describe('Step 6: Cross-tab broadcasting', () => {
+  describe('Cross-tab broadcasting', () => {
     beforeEach(() => {
       // Reset conversation manager state
       conversationManager.messages = [];

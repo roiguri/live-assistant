@@ -167,7 +167,14 @@ describe('ChatController', () => {
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, message, 'user');
             expect(global.ChatUI.clearInput).toHaveBeenCalledWith(mockContainer);
             
-            // Verify message sent to background
+            // Verify user message stored in background
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+                type: 'ADD_MESSAGE',
+                text: message,
+                sender: 'user'
+            });
+            
+            // Verify message sent to AI for processing
             expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
                 type: 'SEND_TEXT_MESSAGE',
                 text: message
@@ -252,6 +259,22 @@ describe('ChatController', () => {
             
             // Verify no timeout is set for complete responses
             expect(global.setTimeout).not.toHaveBeenCalled();
+        });
+
+        it('stores AI message when streaming is finalized', () => {
+            const text = 'Streaming response';
+            
+            // Mock existing streaming element with final text
+            const mockStreamingElement = {
+                textContent: 'Complete streaming response'
+            };
+            global.ConnectionState.getStreamingElement.mockReturnValue(mockStreamingElement);
+
+            // Call receiveResponse with isComplete=true to trigger finalization
+            window.ChatController.receiveResponse(text, true);
+
+            // Verify streaming message is finalized
+            expect(global.MessageView.finalizeStreamingMessage).toHaveBeenCalledWith(mockStreamingElement);
         });
 
         it('updates UI states correctly during streaming', () => {

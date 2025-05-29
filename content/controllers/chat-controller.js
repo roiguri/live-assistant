@@ -111,6 +111,7 @@ window.ChatController = (function() {
     function finalizeCurrentResponse() {
       const currentResponseElement = ConnectionState.getStreamingElement();
       if (currentResponseElement) {
+        // Finalize the streaming message in the UI
         MessageView.finalizeStreamingMessage(currentResponseElement);
       }
       

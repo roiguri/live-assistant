@@ -2,6 +2,7 @@
 globalThis.ConnectionManager = class ConnectionManager {
     constructor() {
       this.ws = null;
+      this.pendingMessages = new Map();
       this.connectionState = {
         websocket: 'disconnected',
         lastError: null,
@@ -9,12 +10,19 @@ globalThis.ConnectionManager = class ConnectionManager {
         maxReconnectAttempts: 5,
         reconnectDelay: 5000
       };
-      this.reconnectTimeout = null;
-      this.pingInterval = null;
       this.setupComplete = false;
-      this.geminiClient = new globalThis.GeminiClient();
+      this.pingInterval = null;
+      this.reconnectTimeout = null;
+      this.currentResponse = ''; // Track streaming response
+
+      this.geminiClient = new globalThis.GeminiClient(new globalThis.ErrorHandler());
       this.apiService = new globalThis.ApiService();
       this.errorHandler = new globalThis.ErrorHandler();
+      this.conversationManager = null; // Will be set by setConversationManager
+    }
+  
+    setConversationManager(conversationManager) {
+        this.conversationManager = conversationManager;
     }
   
     _getDefaultSystemPrompt() {
@@ -113,6 +121,15 @@ Guidelines:
     }
   
     sendResponseToContentScript(text, isComplete = false) {
+      // Track streaming response text
+      this.currentResponse += text;
+      
+      // Store AI message in conversation manager when complete
+      if (isComplete && this.conversationManager) {
+        this.conversationManager.addMessage(this.currentResponse, 'ai', null);
+        this.currentResponse = ''; // Reset for next response
+      }
+      
       chrome.tabs.query({}, (tabs) => {
         tabs.forEach(tab => {
           chrome.tabs.sendMessage(tab.id, { type: 'AI_RESPONSE', text, isComplete })
