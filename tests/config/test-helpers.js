@@ -8,7 +8,8 @@ global.chrome = {
     },
     secure: {
       get: jest.fn(),
-      set: jest.fn()
+      set: jest.fn(),
+      remove: jest.fn()
     }
   },
   runtime: {
