@@ -34,6 +34,11 @@ window.ChatState = (function() {
         notifyObservers('messages-cleared');
     }
     
+    function setMessages(newMessages) {
+        messages = [...newMessages];
+        notifyObservers('messages-updated', { messages: newMessages });
+    }
+    
     function setState(newState) {
         if (!STATES[newState.toUpperCase()]) return false;
         
@@ -73,6 +78,7 @@ window.ChatState = (function() {
         STATES,
         addMessage,
         clearMessages,
+        setMessages,
         setState,
         getState,
         getMessages,

@@ -755,4 +755,124 @@ describe('ChatEvents', () => {
             expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
         });
     });
+
+    describe('conversation update handling', () => {
+        beforeEach(() => {
+            // Reset any mocks
+            jest.clearAllMocks();
+            
+            // Mock console.debug  
+            const originalConsole = global.console;
+            global.console = {
+                ...originalConsole,
+                debug: jest.fn()
+            };
+            
+            // Setup messages area element
+            mockElements.messagesArea = {
+                innerHTML: '',
+                appendChild: jest.fn(),
+                scrollTop: 0,
+                scrollHeight: 500
+            };
+            
+            mockContainer.querySelector.mockImplementation((selector) => {
+                if (selector === '.chat-messages') {
+                    return mockElements.messagesArea;
+                }
+                return mockElements[selector.replace('.', '').replace('-', '')] || null;
+            });
+        });
+
+        it('should handle CONVERSATION_UPDATE message correctly', () => {
+            const mockSendResponse = jest.fn();
+            const mockMessages = [
+                { id: '1', text: 'Hello', sender: 'user', timestamp: 123 },
+                { id: '2', text: 'Hi there!', sender: 'ai', timestamp: 124 }
+            ];
+
+            // Test conversation update message directly
+            const conversationMessage = {
+                type: 'CONVERSATION_UPDATE',
+                messages: mockMessages
+            };
+
+            chromeMessageListener(conversationMessage, null, mockSendResponse);
+
+            // Verify response was sent
+            expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
+            
+            // Verify debug logging
+            expect(global.console.debug).toHaveBeenCalledWith('Conversation updated:', 2, 'messages');
+        });
+
+        it('should update chat display correctly', () => {
+            const mockSendResponse = jest.fn();
+            const mockMessages = [
+                { id: '1', text: 'User message', sender: 'user', timestamp: 123 },
+                { id: '2', text: 'AI response', sender: 'ai', timestamp: 124 }
+            ];
+
+            // Test conversation update
+            chromeMessageListener({ 
+                type: 'CONVERSATION_UPDATE', 
+                messages: mockMessages 
+            }, null, mockSendResponse);
+
+            // Verify welcome message was set
+            expect(mockElements.messagesArea.innerHTML).toBe('<div class="welcome-message">Hello! I\'m your AI assistant.</div>');
+            
+            // Verify messages were appended (should be called twice for 2 messages)
+            expect(mockElements.messagesArea.appendChild).toHaveBeenCalledTimes(2);
+            
+            // Verify scroll to bottom
+            expect(mockElements.messagesArea.scrollTop).toBe(500); // scrollHeight value
+        });
+
+        it('should handle empty messages array', () => {
+            const mockSendResponse = jest.fn();
+
+            // Test with empty messages
+            chromeMessageListener({ 
+                type: 'CONVERSATION_UPDATE', 
+                messages: [] 
+            }, null, mockSendResponse);
+
+            // Verify only welcome message is shown
+            expect(mockElements.messagesArea.innerHTML).toBe('<div class="welcome-message">Hello! I\'m your AI assistant.</div>');
+            expect(mockElements.messagesArea.appendChild).not.toHaveBeenCalled();
+            
+            expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
+        });
+
+        it('should create message elements with correct classes', () => {
+            const mockSendResponse = jest.fn();
+            const mockMessages = [
+                { id: '1', text: 'User message', sender: 'user', timestamp: 123 },
+                { id: '2', text: 'AI response', sender: 'ai', timestamp: 124 }
+            ];
+
+            // Mock document.createElement to track element creation
+            const mockMessageElements = [
+                { className: '', textContent: '', appendChild: jest.fn() },
+                { className: '', textContent: '', appendChild: jest.fn() }
+            ];
+            
+            let elementIndex = 0;
+            mockCreateElement.mockImplementation(() => {
+                return mockMessageElements[elementIndex++] || createMockElement();
+            });
+
+            chromeMessageListener({ 
+                type: 'CONVERSATION_UPDATE', 
+                messages: mockMessages 
+            }, null, mockSendResponse);
+
+            // Verify message elements were created with correct classes and content
+            expect(mockMessageElements[0].className).toBe('message message-user');
+            expect(mockMessageElements[0].textContent).toBe('User message');
+            expect(mockMessageElements[1].className).toBe('message message-ai');
+            expect(mockMessageElements[1].textContent).toBe('AI response');
+        });
+    });
 }); 

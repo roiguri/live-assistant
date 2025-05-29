@@ -236,6 +236,91 @@ describe('ChatState', () => {
     });
   });
 
+  describe('setMessages', () => {
+    beforeEach(() => {
+      resetChatState();
+      mockObserver = jest.fn();
+      window.ChatState.addObserver(mockObserver);
+    });
+
+    it('should replace messages array with new messages', () => {
+      // Add some initial messages
+      window.ChatState.addMessage('Old message 1', 'user');
+      window.ChatState.addMessage('Old message 2', 'ai');
+      expect(window.ChatState.getMessages()).toHaveLength(2);
+      
+      // Set new messages array
+      const newMessages = [
+        { id: '1', text: 'New message 1', sender: 'user', timestamp: 123 },
+        { id: '2', text: 'New message 2', sender: 'ai', timestamp: 124 },
+        { id: '3', text: 'New message 3', sender: 'user', timestamp: 125 }
+      ];
+      
+      window.ChatState.setMessages(newMessages);
+      
+      const currentMessages = window.ChatState.getMessages();
+      expect(currentMessages).toHaveLength(3);
+      expect(currentMessages).toEqual(newMessages);
+    });
+
+    it('should create copy of provided messages to prevent external mutation', () => {
+      const originalMessages = [
+        { id: '1', text: 'Message 1', sender: 'user', timestamp: 123 }
+      ];
+      
+      window.ChatState.setMessages(originalMessages);
+      
+      // Modify original array
+      originalMessages.push({ id: '2', text: 'Added later', sender: 'user', timestamp: 124 });
+      
+      // ChatState should be unchanged
+      expect(window.ChatState.getMessages()).toHaveLength(1);
+      expect(window.ChatState.getMessages()[0].text).toBe('Message 1');
+    });
+
+    it('should handle empty messages array', () => {
+      // Add some messages first
+      window.ChatState.addMessage('Message 1', 'user');
+      window.ChatState.addMessage('Message 2', 'ai');
+      expect(window.ChatState.getMessages()).toHaveLength(2);
+      
+      // Set to empty array
+      window.ChatState.setMessages([]);
+      
+      expect(window.ChatState.getMessages()).toHaveLength(0);
+      expect(window.ChatState.getLastMessage()).toBeNull();
+    });
+
+    it('should notify observers with messages-updated event', () => {
+      const newMessages = [
+        { id: '1', text: 'New message', sender: 'user', timestamp: 123 }
+      ];
+      
+      mockObserver.mockClear(); // Clear previous calls
+      
+      window.ChatState.setMessages(newMessages);
+      
+      expect(mockObserver).toHaveBeenCalledWith('messages-updated', { 
+        messages: newMessages 
+      });
+      expect(mockObserver).toHaveBeenCalledTimes(1);
+    });
+
+    it('should update getLastMessage correctly', () => {
+      const newMessages = [
+        { id: '1', text: 'First', sender: 'user', timestamp: 123 },
+        { id: '2', text: 'Second', sender: 'ai', timestamp: 124 },
+        { id: '3', text: 'Last', sender: 'user', timestamp: 125 }
+      ];
+      
+      window.ChatState.setMessages(newMessages);
+      
+      const lastMessage = window.ChatState.getLastMessage();
+      expect(lastMessage).toEqual(newMessages[2]);
+      expect(lastMessage.text).toBe('Last');
+    });
+  });
+
   describe('STATES constants', () => {
     beforeEach(() => {
       resetChatState();

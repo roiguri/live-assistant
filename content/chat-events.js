@@ -217,6 +217,10 @@ window.ChatEvents = (function() {
         handleKeyboardScreenshot(container);
         sendResponse({ success: true });
         break;
+      case 'CONVERSATION_UPDATE':
+        handleConversationUpdate(container, message.messages);
+        sendResponse({ success: true });
+        break;
     }
   });
 
@@ -305,6 +309,41 @@ window.ChatEvents = (function() {
         input.focus();
       }
     }, 300);
+  }
+  
+  function handleConversationUpdate(container, messages) {
+    // Update ChatState
+    window.ChatState.setMessages(messages);
+    
+    // Update display
+    updateChatDisplay(container, messages);
+    
+    console.debug('Conversation updated:', messages.length, 'messages');
+  }
+
+  function updateChatDisplay(container, messages) {
+    const messagesArea = container.querySelector('.chat-messages');
+    
+    // Clear existing messages except welcome
+    messagesArea.innerHTML = '<div class="welcome-message">Hello! I\'m your AI assistant.</div>';
+    
+    // Add all messages
+    messages.forEach(msg => {
+      const messageEl = document.createElement('div');
+      messageEl.className = `message message-${msg.sender}`;
+      messageEl.textContent = msg.text;
+      messagesArea.appendChild(messageEl);
+    });
+    
+    // Scroll to bottom
+    messagesArea.scrollTop = messagesArea.scrollHeight;
+    
+    // Update recent area if needed
+    if (window.ChatState.isRecentState()) {
+      if (window.ChatView && window.ChatView.updateRecentArea) {
+        window.ChatView.updateRecentArea(container);
+      }
+    }
   }
   
   // Public API
