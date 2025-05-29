@@ -99,6 +99,43 @@ globalThis.MessageRouter = class MessageRouter {
             }
             sendResponse({ success: true });
         });
+
+        // SET_UI_STATE: Update UI state across all tabs
+        // This will trigger storing the state and broadcasting to all tabs
+        this.registerHandler('SET_UI_STATE', async (message, sender, sendResponse) => {
+            try {
+                if (this.conversationManager) {
+                    const success = await this.conversationManager.setUIState(message.uiState);
+                    this.errorHandler.debug('MessageRouter', 'SET_UI_STATE completed', {
+                        uiState: message.uiState,
+                        success
+                    });
+                    sendResponse({ success });
+                } else {
+                    this.errorHandler.debug('MessageRouter', 'SET_UI_STATE - no conversation manager');
+                    sendResponse({ success: false });
+                }
+            } catch (error) {
+                this.errorHandler.error('MessageRouter', 'SET_UI_STATE failed', error.message);
+                sendResponse({ success: false, error: error.message });
+            }
+            return true; // Keep response channel open for async operation
+        });
+
+        // GET_UI_STATE: Retrieve current UI state for new tabs
+        // This loads the stored UI state when a tab is opened or refreshed
+        this.registerHandler('GET_UI_STATE', (message, sender, sendResponse) => {
+            if (this.conversationManager) {
+                const uiState = this.conversationManager.getUIState();
+                sendResponse({ uiState });
+                this.errorHandler.debug('MessageRouter', 'GET_UI_STATE sent', {
+                    uiState
+                });
+            } else {
+                sendResponse({ uiState: 'minimal' });
+                this.errorHandler.debug('MessageRouter', 'GET_UI_STATE - no conversation manager, defaulting to minimal');
+            }
+        });
     }
 
     registerHandler(messageType, handler) {
@@ -112,7 +149,8 @@ globalThis.MessageRouter = class MessageRouter {
             try {
                 const result = handler(message, sender, sendResponse);
                 // Return true if handler needs to keep response channel open
-                return result === true;
+                // This includes both explicit `return true` and async functions (which return Promises)
+                return result === true || result instanceof Promise;
             } catch (error) {
                 this.errorHandler.error('MessageRouter', `Error handling ${message.type}`, error.message);
                 if (sendResponse) {

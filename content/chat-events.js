@@ -221,6 +221,10 @@ window.ChatEvents = (function() {
         handleConversationUpdate(container, message.messages);
         sendResponse({ success: true });
         break;
+      case 'UI_STATE_UPDATE':
+        handleUIStateUpdate(container, message.uiState);
+        sendResponse({ success: true });
+        break;
     }
   });
 
@@ -317,6 +321,16 @@ window.ChatEvents = (function() {
     
     // Update display
     updateChatDisplay(container, messages);
+  }
+
+  function handleUIStateUpdate(container, uiState) {
+    // Update ChatState without triggering background sync (avoid infinite loop)
+    window.ChatState.setStateFromSync(uiState);
+    
+    // Update the visual state of the container
+    if (window.ChatView && window.ChatView.updateState) {
+      window.ChatView.updateState(container);
+    }
   }
 
   function updateChatDisplay(container, messages) {

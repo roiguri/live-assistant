@@ -40,6 +40,21 @@
           }
         });
         
+        // Load UI state for new tabs (after container and listeners are ready)
+        chrome.runtime.sendMessage({
+          type: 'GET_UI_STATE'
+        }, (response) => {
+          if (response && response.uiState) {
+            // Update ChatState with loaded UI state
+            window.ChatState.setStateFromSync(response.uiState);
+            
+            // Update the visual state of the container
+            if (window.ChatView && window.ChatView.updateState) {
+              window.ChatView.updateState(chatContainer);
+            }
+          }
+        });
+        
         // Set up all event listeners
         window.ChatEvents.setupEventListeners(chatContainer);
         

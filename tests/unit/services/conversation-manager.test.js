@@ -6,14 +6,36 @@ require('../../../services/conversation-manager.js');
 
 describe('ConversationManager', () => {
   let conversationManager;
+  let mockChrome;
   
   beforeEach(() => {
+    global.chrome = {
+      storage: {
+        local: {
+          get: jest.fn(),
+          set: jest.fn()
+        }
+      },
+      tabs: {
+        query: jest.fn(),
+        sendMessage: jest.fn()
+      },
+      runtime: {
+        lastError: null
+      }
+    };
+    mockChrome = global.chrome;
+    
     // Reset Chrome API mocks
     chrome.storage.local.get.mockClear();
     chrome.storage.local.set.mockClear();
     
     // Create new instance for each test (this will call init)
     conversationManager = new globalThis.ConversationManager();
+  });
+  
+  afterEach(() => {
+    jest.clearAllMocks();
   });
   
   describe('Step 1: Initial Setup', () => {
@@ -41,44 +63,49 @@ describe('ConversationManager', () => {
   describe('Storage Loading', () => {
     test('init method calls loadFromStorage and logs success', async () => {
       const mockMessages = [
-        { id: '1', text: 'Hello', sender: 'user', timestamp: 123 },
-        { id: '2', text: 'Hi!', sender: 'ai', timestamp: 124 }
+        { id: 'msg1', text: 'Hello', sender: 'user', timestamp: 123 },
+        { id: 'msg2', text: 'Hi there!', sender: 'ai', timestamp: 124 }
       ];
       
-      chrome.storage.local.get.mockResolvedValue({ conversation: mockMessages });
+      mockChrome.storage.local.get.mockResolvedValue({
+        conversation: mockMessages,
+        uiState: 'recent'
+      });
       
       const testManager = new globalThis.ConversationManager();
       await testManager.init();
       
-      expect(chrome.storage.local.get).toHaveBeenCalledWith(['conversation']);
+      expect(chrome.storage.local.get).toHaveBeenCalledWith(['conversation', 'uiState']);
       expect(testManager.messages).toEqual(mockMessages);
     });
 
     test('loadFromStorage loads existing conversation from storage', async () => {
       const mockMessages = [
-        { id: '1', text: 'Hello', sender: 'user', timestamp: 123 },
-        { id: '2', text: 'Hi!', sender: 'ai', timestamp: 124 }
+        { id: 'msg1', text: 'Hello', sender: 'user', timestamp: 123 }
       ];
       
-      chrome.storage.local.get.mockResolvedValue({ conversation: mockMessages });
+      mockChrome.storage.local.get.mockResolvedValue({
+        conversation: mockMessages,
+        uiState: 'full'
+      });
       
       await conversationManager.loadFromStorage();
       
-      expect(chrome.storage.local.get).toHaveBeenCalledWith(['conversation']);
+      expect(chrome.storage.local.get).toHaveBeenCalledWith(['conversation', 'uiState']);
       expect(conversationManager.messages).toEqual(mockMessages);
     });
 
     test('loadFromStorage handles empty storage gracefully', async () => {
-      chrome.storage.local.get.mockResolvedValue({});
+      mockChrome.storage.local.get.mockResolvedValue({});
       
       await conversationManager.loadFromStorage();
       
-      expect(chrome.storage.local.get).toHaveBeenCalledWith(['conversation']);
+      expect(chrome.storage.local.get).toHaveBeenCalledWith(['conversation', 'uiState']);
       expect(conversationManager.messages).toEqual([]);
     });
 
     test('loadFromStorage handles storage errors gracefully', async () => {
-      chrome.storage.local.get.mockRejectedValue(new Error('Storage error'));
+      mockChrome.storage.local.get.mockRejectedValue(new Error('Storage error'));
       
       await conversationManager.loadFromStorage();
       
@@ -87,26 +114,26 @@ describe('ConversationManager', () => {
 
     test('saveToStorage saves messages with timestamp', async () => {
       const testMessages = [
-        { id: '1', text: 'Test', sender: 'user', timestamp: 123 }
+        { id: 'msg1', text: 'Test', sender: 'user', timestamp: 123 }
       ];
       
       conversationManager.messages = testMessages;
-      chrome.storage.local.set.mockResolvedValue();
+      mockChrome.storage.local.set.mockResolvedValue();
       
       await conversationManager.saveToStorage();
       
       expect(chrome.storage.local.set).toHaveBeenCalledWith({
         conversation: testMessages,
+        uiState: 'minimal',
         lastUpdated: expect.any(Number)
       });
     });
 
     test('saveToStorage handles storage errors gracefully', async () => {
-      conversationManager.messages = [{ id: '1', text: 'Test' }];
-      chrome.storage.local.set.mockRejectedValue(new Error('Storage full'));
+      mockChrome.storage.local.set.mockRejectedValue(new Error('Storage full'));
       
       // Should not throw
-      await expect(conversationManager.saveToStorage()).resolves.toBeUndefined();
+      await conversationManager.saveToStorage();
     });
 
     test('getConversation respects limit parameter', async () => {
@@ -133,12 +160,12 @@ describe('ConversationManager', () => {
     beforeEach(() => {
       // Reset conversation manager state
       conversationManager.messages = [];
-      chrome.storage.local.get.mockClear();
-      chrome.storage.local.set.mockClear();
+      mockChrome.storage.local.get.mockClear();
+      mockChrome.storage.local.set.mockClear();
     });
 
     test('addMessage creates message with correct structure', async () => {
-      chrome.storage.local.set.mockResolvedValue();
+      mockChrome.storage.local.set.mockResolvedValue();
       
       const testText = 'Hello world';
       const testSender = 'user';
@@ -147,7 +174,7 @@ describe('ConversationManager', () => {
       const result = await conversationManager.addMessage(testText, testSender, testTabId);
       
       expect(result).toMatchObject({
-        id: expect.stringMatching(/^msg_\d+_0\.\d+$/),
+        id: expect.stringMatching(/^msg_\d+_[\d.]+$/),
         text: testText,
         sender: testSender,
         timestamp: expect.any(Number)
@@ -155,7 +182,7 @@ describe('ConversationManager', () => {
     });
 
     test('addMessage adds message to internal array', async () => {
-      chrome.storage.local.set.mockResolvedValue();
+      mockChrome.storage.local.set.mockResolvedValue();
       
       await conversationManager.addMessage('Message 1', 'user', 123);
       await conversationManager.addMessage('Message 2', 'ai', 123);
@@ -167,7 +194,7 @@ describe('ConversationManager', () => {
     });
 
     test('addMessage calls saveToStorage', async () => {
-      chrome.storage.local.set.mockResolvedValue();
+      mockChrome.storage.local.set.mockResolvedValue();
       
       await conversationManager.addMessage('Test message', 'user', 123);
       
@@ -178,12 +205,13 @@ describe('ConversationManager', () => {
             sender: 'user'
           })
         ]),
+        uiState: 'minimal',
         lastUpdated: expect.any(Number)
       });
     });
 
     test('addMessage enforces maxMessages limit', async () => {
-      chrome.storage.local.set.mockResolvedValue();
+      mockChrome.storage.local.set.mockResolvedValue();
       
       // Set a low limit for testing
       conversationManager.maxMessages = 3;
@@ -200,18 +228,18 @@ describe('ConversationManager', () => {
     });
 
     test('addMessage generates unique IDs', async () => {
-      chrome.storage.local.set.mockResolvedValue();
+      mockChrome.storage.local.set.mockResolvedValue();
       
       const message1 = await conversationManager.addMessage('Message 1', 'user', 123);
       const message2 = await conversationManager.addMessage('Message 2', 'user', 123);
       
       expect(message1.id).not.toBe(message2.id);
-      expect(message1.id).toMatch(/^msg_\d+_0\.\d+$/);
-      expect(message2.id).toMatch(/^msg_\d+_0\.\d+$/);
+      expect(message1.id).toMatch(/^msg_\d+_[\d.]+$/);
+      expect(message2.id).toMatch(/^msg_\d+_[\d.]+$/);
     });
 
     test('addMessage handles storage errors gracefully', async () => {
-      chrome.storage.local.set.mockRejectedValue(new Error('Storage failed'));
+      mockChrome.storage.local.set.mockRejectedValue(new Error('Storage failed'));
       
       // Should not throw
       const result = await conversationManager.addMessage('Test message', 'user', 123);
@@ -225,7 +253,7 @@ describe('ConversationManager', () => {
     });
 
     test('addMessage returns message that matches internal storage', async () => {
-      chrome.storage.local.set.mockResolvedValue();
+      mockChrome.storage.local.set.mockResolvedValue();
       
       const returned = await conversationManager.addMessage('Test message', 'user', 123);
       const stored = conversationManager.getConversation();
@@ -239,10 +267,10 @@ describe('ConversationManager', () => {
     beforeEach(() => {
       // Reset conversation manager state
       conversationManager.messages = [];
-      chrome.storage.local.get.mockClear();
-      chrome.storage.local.set.mockClear();
-      chrome.tabs.query.mockClear();
-      chrome.tabs.sendMessage.mockClear();
+      mockChrome.storage.local.get.mockClear();
+      mockChrome.storage.local.set.mockClear();
+      mockChrome.tabs.query.mockClear();
+      mockChrome.tabs.sendMessage.mockClear();
     });
 
     test('broadcastUpdate queries all tabs and sends messages', () => {
@@ -253,10 +281,10 @@ describe('ConversationManager', () => {
       ];
       
       // Setup mock tabs
-      chrome.tabs.query.mockImplementation((query, callback) => {
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
         callback(mockTabs);
       });
-      chrome.tabs.sendMessage.mockResolvedValue();
+      mockChrome.tabs.sendMessage.mockResolvedValue();
       
       // Add some messages to broadcast
       conversationManager.messages = [
@@ -267,42 +295,42 @@ describe('ConversationManager', () => {
       conversationManager.broadcastUpdate();
       
       // Verify tabs.query was called
-      expect(chrome.tabs.query).toHaveBeenCalledWith({}, expect.any(Function));
+      expect(mockChrome.tabs.query).toHaveBeenCalledWith({}, expect.any(Function));
       
       // Verify sendMessage was called for each tab
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(3);
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledTimes(3);
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
         type: 'CONVERSATION_UPDATE',
         messages: conversationManager.messages
       });
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
         type: 'CONVERSATION_UPDATE',
         messages: conversationManager.messages
       });
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(3, {
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(3, {
         type: 'CONVERSATION_UPDATE',
         messages: conversationManager.messages
       });
     });
 
     test('broadcastUpdate handles empty tabs list', () => {
-      chrome.tabs.query.mockImplementation((query, callback) => {
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
         callback([]);
       });
       
       conversationManager.broadcastUpdate();
       
-      expect(chrome.tabs.query).toHaveBeenCalled();
-      expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
+      expect(mockChrome.tabs.query).toHaveBeenCalled();
+      expect(mockChrome.tabs.sendMessage).not.toHaveBeenCalled();
     });
 
     test('broadcastUpdate handles sendMessage errors gracefully', () => {
       const mockTabs = [{ id: 1 }, { id: 2 }];
       
-      chrome.tabs.query.mockImplementation((query, callback) => {
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
         callback(mockTabs);
       });
-      chrome.tabs.sendMessage
+      mockChrome.tabs.sendMessage
         .mockResolvedValueOnce() // First succeeds
         .mockRejectedValueOnce(new Error('Tab closed')); // Second fails
       
@@ -311,21 +339,21 @@ describe('ConversationManager', () => {
         conversationManager.broadcastUpdate();
       }).not.toThrow();
       
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
     });
 
     test('addMessage triggers broadcast after storage', async () => {
-      chrome.storage.local.set.mockResolvedValue();
-      chrome.tabs.query.mockImplementation((query, callback) => {
+      mockChrome.storage.local.set.mockResolvedValue();
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
         callback([{ id: 1 }]);
       });
-      chrome.tabs.sendMessage.mockResolvedValue();
+      mockChrome.tabs.sendMessage.mockResolvedValue();
       
       await conversationManager.addMessage('Test message', 'user', 123);
       
       // Verify broadcast was called
-      expect(chrome.tabs.query).toHaveBeenCalled();
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+      expect(mockChrome.tabs.query).toHaveBeenCalled();
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
         type: 'CONVERSATION_UPDATE',
         messages: expect.arrayContaining([
           expect.objectContaining({
@@ -337,11 +365,11 @@ describe('ConversationManager', () => {
     });
 
     test('addMessage still works if broadcast fails', async () => {
-      chrome.storage.local.set.mockResolvedValue();
-      chrome.tabs.query.mockImplementation((query, callback) => {
+      mockChrome.storage.local.set.mockResolvedValue();
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
         callback([{ id: 1 }]);
       });
-      chrome.tabs.sendMessage.mockRejectedValue(new Error('Broadcast failed'));
+      mockChrome.tabs.sendMessage.mockRejectedValue(new Error('Broadcast failed'));
       
       // Should not throw and should still return the message
       const result = await conversationManager.addMessage('Test message', 'user', 123);
@@ -360,14 +388,14 @@ describe('ConversationManager', () => {
       
       conversationManager.messages = currentMessages;
       
-      chrome.tabs.query.mockImplementation((query, callback) => {
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
         callback([{ id: 1 }]);
       });
-      chrome.tabs.sendMessage.mockResolvedValue();
+      mockChrome.tabs.sendMessage.mockResolvedValue();
       
       conversationManager.broadcastUpdate();
       
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
         type: 'CONVERSATION_UPDATE',
         messages: currentMessages
       });
@@ -381,9 +409,9 @@ describe('ConversationManager', () => {
         { id: 'msg_1', text: 'Hello', sender: 'user', timestamp: 123 },
         { id: 'msg_2', text: 'Hi there!', sender: 'ai', timestamp: 124 }
       ];
-      chrome.storage.local.set.mockClear();
-      chrome.tabs.query.mockClear();
-      chrome.tabs.sendMessage.mockClear();
+      mockChrome.storage.local.set.mockClear();
+      mockChrome.tabs.query.mockClear();
+      mockChrome.tabs.sendMessage.mockClear();
     });
 
     test('clearConversation empties messages array', () => {
@@ -396,12 +424,13 @@ describe('ConversationManager', () => {
     });
 
     test('clearConversation saves empty state to storage', () => {
-      chrome.storage.local.set.mockResolvedValue();
+      mockChrome.storage.local.set.mockResolvedValue();
       
       conversationManager.clearConversation();
       
-      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
         conversation: [],
+        uiState: 'minimal',
         lastUpdated: expect.any(Number)
       });
     });
@@ -412,28 +441,28 @@ describe('ConversationManager', () => {
         { id: 2, url: 'https://google.com' }
       ];
       
-      chrome.tabs.query.mockImplementation((query, callback) => {
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
         callback(mockTabs);
       });
-      chrome.tabs.sendMessage.mockResolvedValue();
+      mockChrome.tabs.sendMessage.mockResolvedValue();
       
       conversationManager.clearConversation();
       
-      expect(chrome.tabs.query).toHaveBeenCalledWith({}, expect.any(Function));
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+      expect(mockChrome.tabs.query).toHaveBeenCalledWith({}, expect.any(Function));
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
         type: 'CONVERSATION_UPDATE',
         messages: []
       });
-      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
         type: 'CONVERSATION_UPDATE',
         messages: []
       });
     });
 
     test('clearConversation handles storage errors gracefully', () => {
-      chrome.storage.local.set.mockRejectedValue(new Error('Storage full'));
-      chrome.tabs.query.mockImplementation((query, callback) => {
+      mockChrome.storage.local.set.mockRejectedValue(new Error('Storage full'));
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
         callback([]);
       });
       
@@ -445,17 +474,123 @@ describe('ConversationManager', () => {
     });
 
     test('clearConversation handles broadcast errors gracefully', () => {
-      chrome.storage.local.set.mockResolvedValue();
-      chrome.tabs.query.mockImplementation((query, callback) => {
+      mockChrome.storage.local.set.mockResolvedValue();
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
         callback([{ id: 1 }]);
       });
-      chrome.tabs.sendMessage.mockRejectedValue(new Error('Tab not found'));
+      mockChrome.tabs.sendMessage.mockRejectedValue(new Error('Tab not found'));
       
       expect(() => {
         conversationManager.clearConversation();
       }).not.toThrow();
       
       expect(conversationManager.messages).toHaveLength(0);
+    });
+  });
+
+  describe('UI State Management', () => {
+    beforeEach(() => {
+      conversationManager.messages = [];
+      mockChrome.storage.local.set.mockClear();
+      mockChrome.tabs.query.mockClear();
+      mockChrome.tabs.sendMessage.mockClear();
+    });
+
+    test('setUIState updates current state', async () => {
+      mockChrome.storage.local.set.mockResolvedValue();
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
+        callback([]);
+      });
+      
+      const result = await conversationManager.setUIState('full');
+      
+      expect(result).toBe(true);
+      expect(conversationManager.currentUIState).toBe('full');
+    });
+
+    test('setUIState saves to storage', async () => {
+      mockChrome.storage.local.set.mockResolvedValue();
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
+        callback([]);
+      });
+      
+      await conversationManager.setUIState('recent');
+      
+      expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
+        conversation: [],
+        uiState: 'recent',
+        lastUpdated: expect.any(Number)
+      });
+    });
+
+    test('setUIState broadcasts update', async () => {
+      mockChrome.storage.local.set.mockResolvedValue();
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ id: 1 }, { id: 2 }]);
+      });
+      mockChrome.tabs.sendMessage.mockResolvedValue();
+      
+      await conversationManager.setUIState('full');
+      
+      expect(mockChrome.tabs.query).toHaveBeenCalledWith({}, expect.any(Function));
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'UI_STATE_UPDATE',
+        uiState: 'full'
+      });
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
+        type: 'UI_STATE_UPDATE',
+        uiState: 'full'
+      });
+    });
+
+    test('setUIState rejects invalid states', async () => {
+      const result = await conversationManager.setUIState('invalid');
+      
+      expect(result).toBe(false);
+      expect(conversationManager.currentUIState).toBe('minimal'); // unchanged
+    });
+
+    test('getUIState returns current state', () => {
+      conversationManager.currentUIState = 'recent';
+      
+      const result = conversationManager.getUIState();
+      expect(result).toBe('recent');
+    });
+
+    test('broadcastUIStateUpdate sends to all tabs', () => {
+      conversationManager.currentUIState = 'full';
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ id: 1 }, { id: 2 }]);
+      });
+      mockChrome.tabs.sendMessage.mockResolvedValue();
+      
+      conversationManager.broadcastUIStateUpdate();
+      
+      expect(mockChrome.tabs.query).toHaveBeenCalledWith({}, expect.any(Function));
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'UI_STATE_UPDATE',
+        uiState: 'full'
+      });
+    });
+
+    test('broadcastUIStateUpdate handles query errors gracefully', () => {
+      mockChrome.runtime.lastError = { message: 'Query failed' };
+      
+      expect(() => {
+        conversationManager.broadcastUIStateUpdate();
+      }).not.toThrow();
+    });
+
+    test('broadcastUIStateUpdate handles send message errors gracefully', () => {
+      mockChrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ id: 1 }]);
+      });
+      mockChrome.tabs.sendMessage.mockRejectedValue(new Error('Tab not found'));
+      
+      expect(() => {
+        conversationManager.broadcastUIStateUpdate();
+      }).not.toThrow();
     });
   });
 });

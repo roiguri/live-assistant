@@ -3,6 +3,7 @@ globalThis.ConversationManager = class ConversationManager {
     constructor() {
         this.messages = [];
         this.maxMessages = 100;
+        this.currentUIState = 'minimal'; // Track current UI state across tabs
         this.errorHandler = new globalThis.ErrorHandler();
         this.init(); // Add initialization
     }
@@ -41,14 +42,17 @@ globalThis.ConversationManager = class ConversationManager {
     
     async loadFromStorage() {
         try {
-            const result = await chrome.storage.local.get(['conversation']);
+            const result = await chrome.storage.local.get(['conversation', 'uiState']);
             this.messages = result.conversation || [];
+            this.currentUIState = result.uiState || 'minimal';
             this.errorHandler.debug('ConversationManager', 'Storage loaded', {
-                messageCount: this.messages.length
+                messageCount: this.messages.length,
+                uiState: this.currentUIState
             });
         } catch (error) {
             this.errorHandler.handleStorageError(error.message, 'load conversation');
             this.messages = [];
+            this.currentUIState = 'minimal';
         }
     }
     
@@ -56,10 +60,12 @@ globalThis.ConversationManager = class ConversationManager {
         try {
             await chrome.storage.local.set({
                 conversation: this.messages,
+                uiState: this.currentUIState,
                 lastUpdated: Date.now()
             });
             this.errorHandler.debug('ConversationManager', 'Saved to storage', {
-                messageCount: this.messages.length
+                messageCount: this.messages.length,
+                uiState: this.currentUIState
             });
         } catch (error) {
             this.errorHandler.handleStorageError(error.message, 'save conversation');
@@ -91,6 +97,54 @@ globalThis.ConversationManager = class ConversationManager {
         } catch (error) {
             this.errorHandler.error('ConversationManager', 'Broadcast failed', error.message);
         }
+    }
+    
+    broadcastUIStateUpdate() {
+        try {
+            chrome.tabs.query({}, (tabs) => {
+                if (chrome.runtime.lastError) {
+                    this.errorHandler.error('ConversationManager', 'UI state broadcast query failed', chrome.runtime.lastError.message);
+                    return;
+                }
+                
+                tabs.forEach(tab => {
+                    chrome.tabs.sendMessage(tab.id, {
+                        type: 'UI_STATE_UPDATE',
+                        uiState: this.currentUIState
+                    }).catch(() => {
+                        // Silently ignore - tab might not have content script
+                    });
+                });
+                
+                this.errorHandler.debug('ConversationManager', 'UI state broadcast sent to all tabs', {
+                    uiState: this.currentUIState,
+                    tabCount: tabs.length
+                });
+            });
+        } catch (error) {
+            this.errorHandler.error('ConversationManager', 'UI state broadcast failed', error.message);
+        }
+    }
+    
+    async setUIState(newState) {
+        if (!['minimal', 'recent', 'full'].includes(newState)) {
+            this.errorHandler.error('ConversationManager', 'Invalid UI state', newState);
+            return false;
+        }
+        
+        this.currentUIState = newState;
+        await this.saveToStorage();
+        this.broadcastUIStateUpdate();
+        
+        this.errorHandler.debug('ConversationManager', 'UI state updated and broadcast', {
+            newState
+        });
+        
+        return true;
+    }
+    
+    getUIState() {
+        return this.currentUIState;
     }
     
     getConversation(limit = 50) {
