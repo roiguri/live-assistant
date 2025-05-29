@@ -26,6 +26,20 @@
           chatContainer.style.display = isVisible ? 'block' : 'none';
         });
         
+        // Load existing conversation history for new tabs
+        chrome.runtime.sendMessage({
+          type: 'GET_CONVERSATION',
+          limit: 50
+        }, (response) => {
+          if (response && response.messages && response.messages.length > 0) {
+            // Update ChatState with loaded messages
+            window.ChatState.setMessages(response.messages);
+            
+            // Update the chat display
+            window.ChatEvents.updateChatDisplay(chatContainer, response.messages);
+          }
+        });
+        
         // Set up all event listeners
         window.ChatEvents.setupEventListeners(chatContainer);
         

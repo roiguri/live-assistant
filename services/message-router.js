@@ -70,8 +70,17 @@ globalThis.MessageRouter = class MessageRouter {
         // GET_CONVERSATION: Retrieve conversation history for displaying in new tabs
         // This loads stored messages when a tab is opened or refreshed
         this.registerHandler('GET_CONVERSATION', (message, sender, sendResponse) => {
-            this.errorHandler.debug('MessageRouter', 'GET_CONVERSATION received');
-            sendResponse({ messages: [] }); // Empty for now
+            if (this.conversationManager) {
+                const limit = message.limit || 50;
+                const messages = this.conversationManager.getConversation(limit);
+                sendResponse({ messages });
+                this.errorHandler.debug('MessageRouter', 'GET_CONVERSATION sent', {
+                    messageCount: messages.length, limit
+                });
+            } else {
+                sendResponse({ messages: [] });
+                this.errorHandler.debug('MessageRouter', 'GET_CONVERSATION - no conversation manager');
+            }
         });
 
         // CLEAR_CONVERSATION: Clear conversation history across all tabs

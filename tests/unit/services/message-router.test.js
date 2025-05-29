@@ -418,5 +418,78 @@ describe('MessageRouter', () => {
             expect(mockConversationManager.addMessage).toHaveBeenCalled();
             expect(sendResponse).toHaveBeenCalledWith({ success: true });
         });
+
+        test('handles missing conversation manager gracefully for GET_CONVERSATION', async () => {
+            messageRouter.setConversationManager(null);
+            const sendResponse = jest.fn();
+            const message = { type: 'GET_CONVERSATION', limit: 25 };
+            const sender = { tab: { id: 123 } };
+
+            await messageRouter.handleMessage(message, sender, sendResponse);
+
+            expect(sendResponse).toHaveBeenCalledWith({ messages: [] });
+        });
+    });
+
+    describe('Conversation loading for new tabs', () => {
+        let mockConversationManager;
+
+        beforeEach(() => {
+            jest.clearAllMocks();
+            
+            mockConversationManager = {
+                addMessage: jest.fn().mockResolvedValue({ id: 'msg_123' }),
+                getConversation: jest.fn().mockReturnValue([
+                    { id: 'msg_1', text: 'Hello', sender: 'user' },
+                    { id: 'msg_2', text: 'Hi there!', sender: 'ai' }
+                ]),
+                clearConversation: jest.fn()
+            };
+            
+            messageRouter.setConversationManager(mockConversationManager);
+        });
+
+        test('GET_CONVERSATION returns conversation messages with default limit', async () => {
+            const sendResponse = jest.fn();
+            const message = { type: 'GET_CONVERSATION' };
+            const sender = { tab: { id: 123 } };
+
+            await messageRouter.handleMessage(message, sender, sendResponse);
+
+            expect(mockConversationManager.getConversation).toHaveBeenCalledWith(50);
+            expect(sendResponse).toHaveBeenCalledWith({
+                messages: [
+                    { id: 'msg_1', text: 'Hello', sender: 'user' },
+                    { id: 'msg_2', text: 'Hi there!', sender: 'ai' }
+                ]
+            });
+        });
+
+        test('GET_CONVERSATION respects custom limit', async () => {
+            const sendResponse = jest.fn();
+            const message = { type: 'GET_CONVERSATION', limit: 25 };
+            const sender = { tab: { id: 123 } };
+
+            await messageRouter.handleMessage(message, sender, sendResponse);
+
+            expect(mockConversationManager.getConversation).toHaveBeenCalledWith(25);
+            expect(sendResponse).toHaveBeenCalledWith({
+                messages: [
+                    { id: 'msg_1', text: 'Hello', sender: 'user' },
+                    { id: 'msg_2', text: 'Hi there!', sender: 'ai' }
+                ]
+            });
+        });
+
+        test('GET_CONVERSATION returns empty array when no conversation manager', async () => {
+            messageRouter.setConversationManager(null);
+            const sendResponse = jest.fn();
+            const message = { type: 'GET_CONVERSATION' };
+            const sender = { tab: { id: 123 } };
+
+            await messageRouter.handleMessage(message, sender, sendResponse);
+
+            expect(sendResponse).toHaveBeenCalledWith({ messages: [] });
+        });
     });
 }); 

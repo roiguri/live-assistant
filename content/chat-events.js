@@ -348,7 +348,8 @@ window.ChatEvents = (function() {
   
   // Public API
   return {
-    setupEventListeners
+    setupEventListeners,
+    updateChatDisplay
   };
   
 })();
