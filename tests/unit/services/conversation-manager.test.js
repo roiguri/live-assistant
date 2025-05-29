@@ -129,7 +129,7 @@ describe('ConversationManager', () => {
     });
   });
   
-  describe('Add message functionality', () => {
+  describe('Step 5: Add message functionality', () => {
     beforeEach(() => {
       // Reset conversation manager state
       conversationManager.messages = [];
@@ -235,7 +235,145 @@ describe('ConversationManager', () => {
     });
   });
   
+  describe('Step 6: Cross-tab broadcasting', () => {
+    beforeEach(() => {
+      // Reset conversation manager state
+      conversationManager.messages = [];
+      chrome.storage.local.get.mockClear();
+      chrome.storage.local.set.mockClear();
+      chrome.tabs.query.mockClear();
+      chrome.tabs.sendMessage.mockClear();
+    });
+
+    test('broadcastUpdate queries all tabs and sends messages', () => {
+      const mockTabs = [
+        { id: 1, url: 'https://example.com' },
+        { id: 2, url: 'https://google.com' },
+        { id: 3, url: 'https://github.com' }
+      ];
+      
+      // Setup mock tabs
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback(mockTabs);
+      });
+      chrome.tabs.sendMessage.mockResolvedValue();
+      
+      // Add some messages to broadcast
+      conversationManager.messages = [
+        { id: '1', text: 'Hello', sender: 'user', timestamp: 123 },
+        { id: '2', text: 'World', sender: 'user', timestamp: 124 }
+      ];
+      
+      conversationManager.broadcastUpdate();
+      
+      // Verify tabs.query was called
+      expect(chrome.tabs.query).toHaveBeenCalledWith({}, expect.any(Function));
+      
+      // Verify sendMessage was called for each tab
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(3);
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'CONVERSATION_UPDATE',
+        messages: conversationManager.messages
+      });
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
+        type: 'CONVERSATION_UPDATE',
+        messages: conversationManager.messages
+      });
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(3, {
+        type: 'CONVERSATION_UPDATE',
+        messages: conversationManager.messages
+      });
+    });
+
+    test('broadcastUpdate handles empty tabs list', () => {
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([]);
+      });
+      
+      conversationManager.broadcastUpdate();
+      
+      expect(chrome.tabs.query).toHaveBeenCalled();
+      expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
+    });
+
+    test('broadcastUpdate handles sendMessage errors gracefully', () => {
+      const mockTabs = [{ id: 1 }, { id: 2 }];
+      
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback(mockTabs);
+      });
+      chrome.tabs.sendMessage
+        .mockResolvedValueOnce() // First succeeds
+        .mockRejectedValueOnce(new Error('Tab closed')); // Second fails
+      
+      // Should not throw
+      expect(() => {
+        conversationManager.broadcastUpdate();
+      }).not.toThrow();
+      
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
+    });
+
+    test('addMessage triggers broadcast after storage', async () => {
+      chrome.storage.local.set.mockResolvedValue();
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ id: 1 }]);
+      });
+      chrome.tabs.sendMessage.mockResolvedValue();
+      
+      await conversationManager.addMessage('Test message', 'user', 123);
+      
+      // Verify broadcast was called
+      expect(chrome.tabs.query).toHaveBeenCalled();
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'CONVERSATION_UPDATE',
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            text: 'Test message',
+            sender: 'user'
+          })
+        ])
+      });
+    });
+
+    test('addMessage still works if broadcast fails', async () => {
+      chrome.storage.local.set.mockResolvedValue();
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ id: 1 }]);
+      });
+      chrome.tabs.sendMessage.mockRejectedValue(new Error('Broadcast failed'));
+      
+      // Should not throw and should still return the message
+      const result = await conversationManager.addMessage('Test message', 'user', 123);
+      
+      expect(result).toBeDefined();
+      expect(result.text).toBe('Test message');
+      expect(conversationManager.messages).toHaveLength(1);
+    });
+
+    test('broadcastUpdate sends current message state', () => {
+      const currentMessages = [
+        { id: '1', text: 'Message 1', sender: 'user', timestamp: 123 },
+        { id: '2', text: 'Message 2', sender: 'ai', timestamp: 124 },
+        { id: '3', text: 'Message 3', sender: 'user', timestamp: 125 }
+      ];
+      
+      conversationManager.messages = currentMessages;
+      
+      chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ id: 1 }]);
+      });
+      chrome.tabs.sendMessage.mockResolvedValue();
+      
+      conversationManager.broadcastUpdate();
+      
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'CONVERSATION_UPDATE',
+        messages: currentMessages
+      });
+    });
+  });
+  
   // TODO: Add tests for each step as we implement
-  // Step 6: Broadcasting tests
   // Step 8: Clear conversation tests
 });

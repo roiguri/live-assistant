@@ -28,7 +28,11 @@ globalThis.ConversationManager = class ConversationManager {
         }
         
         await this.saveToStorage();
-        this.errorHandler.debug('ConversationManager', 'Message added', {
+        
+        // Broadcast update to all tabs
+        this.broadcastUpdate();
+        
+        this.errorHandler.debug('ConversationManager', 'Message added and broadcast', {
             sender, textLength: text.length, totalMessages: this.messages.length
         });
         
@@ -63,8 +67,20 @@ globalThis.ConversationManager = class ConversationManager {
     }
     
     broadcastUpdate() {
-        this.errorHandler.debug('ConversationManager', 'broadcastUpdate called');
-        // TODO: Implement in Step 6
+        chrome.tabs.query({}, (tabs) => {
+            tabs.forEach(tab => {
+                chrome.tabs.sendMessage(tab.id, {
+                    type: 'CONVERSATION_UPDATE',
+                    messages: this.messages
+                }).catch(() => {
+                    // Ignore tabs without content script
+                });
+            });
+        });
+        
+        this.errorHandler.debug('ConversationManager', 'Broadcast sent to all tabs', {
+            messageCount: this.messages.length
+        });
     }
     
     getConversation(limit = 50) {
