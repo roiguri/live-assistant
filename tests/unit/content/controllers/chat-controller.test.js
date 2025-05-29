@@ -487,7 +487,8 @@ describe('ChatController', () => {
             // Verify both messages are processed
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, message1, 'user');
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, message2, 'user');
-            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledTimes(2);
+            // Each messagesends both ADD_MESSAGE and SEND_TEXT_MESSAGE (2 messages × 2 calls = 4 total)
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledTimes(4);
         });
 
         it('handles receiveResponse without typing indicator', () => {

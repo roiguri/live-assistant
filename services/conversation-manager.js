@@ -12,14 +12,27 @@ globalThis.ConversationManager = class ConversationManager {
         this.errorHandler.info('ConversationManager', `Loaded ${this.messages.length} messages from storage`);
     }
     
-    // Stub methods for now - will be implemented in later steps
     async addMessage(text, sender, fromTabId) {
-        this.errorHandler.debug('ConversationManager', 'addMessage called', {
-            text: text.substring(0, 50) + '...', 
-            sender, 
-            fromTabId
+        const message = {
+            id: `msg_${Date.now()}_${Math.random()}`,
+            text,
+            sender,
+            timestamp: Date.now()
+        };
+        
+        this.messages.push(message);
+        
+        // Keep only recent messages
+        if (this.messages.length > this.maxMessages) {
+            this.messages = this.messages.slice(-this.maxMessages);
+        }
+        
+        await this.saveToStorage();
+        this.errorHandler.debug('ConversationManager', 'Message added', {
+            sender, textLength: text.length, totalMessages: this.messages.length
         });
-        // TODO: Implement in Step 5
+        
+        return message;
     }
     
     async loadFromStorage() {

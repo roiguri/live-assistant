@@ -10,11 +10,20 @@ window.ChatController = (function() {
       // Finalize any existing response and reset state
       finalizeCurrentResponse();
       
-      // Add user message to UI
+      // Add user message to UI immediately
       window.ChatUI.addMessage(container, message, 'user');
       window.ChatUI.clearInput(container);
       
-      // Send to background script → Gemini Live API
+      // Store user message in background for conversation history and cross-tab sync
+      // This saves the message to persistent storage and enables shared mode
+      chrome.runtime.sendMessage({
+        type: 'ADD_MESSAGE',
+        text: message,
+        sender: 'user'
+      });
+      
+      // Send to AI for processing and response generation
+      // This triggers the actual AI communication through Gemini Live API
       chrome.runtime.sendMessage({
         type: 'SEND_TEXT_MESSAGE',
         text: message

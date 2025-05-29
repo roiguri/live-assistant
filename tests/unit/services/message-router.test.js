@@ -327,17 +327,14 @@ describe('MessageRouter', () => {
             }).not.toThrow();
         });
 
-        it('should handle ADD_MESSAGE correctly', () => {
+        it('should handle ADD_MESSAGE correctly', async () => {
             const message = { type: 'ADD_MESSAGE', text: 'Hello', sender: 'user' };
             const sender = { tab: { id: 123 } };
             const sendResponse = jest.fn();
             
-            messageRouter.handleMessage(message, sender, sendResponse);
+            await messageRouter.handleMessage(message, sender, sendResponse);
             
-            expect(sendResponse).toHaveBeenCalledWith({ 
-                success: true, 
-                message: 'Handler registered' 
-            });
+            expect(sendResponse).toHaveBeenCalledWith({ success: true });
         });
 
         it('should handle GET_CONVERSATION correctly', () => {
@@ -357,6 +354,68 @@ describe('MessageRouter', () => {
             
             messageRouter.handleMessage(message, sender, sendResponse);
             
+            expect(sendResponse).toHaveBeenCalledWith({ success: true });
+        });
+    });
+
+    describe('ConversationManager integration', () => {
+        let mockConversationManager;
+
+        beforeEach(() => {
+            jest.clearAllMocks();
+            
+            mockConversationManager = {
+                addMessage: jest.fn().mockResolvedValue({ id: 'msg_123', text: 'test', sender: 'user' }),
+                getConversation: jest.fn().mockReturnValue([]),
+                clearConversation: jest.fn()
+            };
+        });
+
+        test('setConversationManager stores the conversation manager', () => {
+            messageRouter.setConversationManager(mockConversationManager);
+            
+            expect(messageRouter.conversationManager).toBe(mockConversationManager);
+        });
+
+        test('ADD_MESSAGE handler calls conversationManager.addMessage', async () => {
+            messageRouter.setConversationManager(mockConversationManager);
+            const sendResponse = jest.fn();
+            const message = { type: 'ADD_MESSAGE', text: 'Hello world', sender: 'user' };
+            const sender = { tab: { id: 123 } };
+
+            await messageRouter.handleMessage(message, sender, sendResponse);
+
+            expect(mockConversationManager.addMessage).toHaveBeenCalledWith(
+                'Hello world', 
+                'user', 
+                123
+            );
+            expect(sendResponse).toHaveBeenCalledWith({ success: true });
+        });
+
+        test('ADD_MESSAGE handler works without conversationManager', async () => {
+            // Don't set conversation manager
+            const sendResponse = jest.fn();
+            const message = { type: 'ADD_MESSAGE', text: 'Hello world', sender: 'user' };
+            const sender = { tab: { id: 123 } };
+
+            await messageRouter.handleMessage(message, sender, sendResponse);
+
+            expect(sendResponse).toHaveBeenCalledWith({ success: true });
+        });
+
+        test('ADD_MESSAGE handler handles async errors gracefully', async () => {
+            mockConversationManager.addMessage.mockRejectedValue(new Error('Storage failed'));
+            messageRouter.setConversationManager(mockConversationManager);
+            
+            const sendResponse = jest.fn();
+            const message = { type: 'ADD_MESSAGE', text: 'Hello world', sender: 'user' };
+            const sender = { tab: { id: 123 } };
+
+            // Should not throw
+            await messageRouter.handleMessage(message, sender, sendResponse);
+
+            expect(mockConversationManager.addMessage).toHaveBeenCalled();
             expect(sendResponse).toHaveBeenCalledWith({ success: true });
         });
     });

@@ -12,6 +12,9 @@ globalThis.MessageRouter = class MessageRouter {
         }
 
         // Register default message handlers
+        
+        // SEND_TEXT_MESSAGE: Send user text to AI for processing and response generation
+        // This triggers actual AI communication through the Gemini Live API
         this.registerHandler('SEND_TEXT_MESSAGE', (message, sender) => {
             if (this.connectionManager) {
                 this.connectionManager.handleTextMessage(message.text, sender.tab.id);
@@ -45,17 +48,34 @@ globalThis.MessageRouter = class MessageRouter {
                 sendResponse({ success: true });
             }
         });
-        this.registerHandler('ADD_MESSAGE', (message, sender, sendResponse) => {
-            this.errorHandler.debug('MessageRouter', 'ADD_MESSAGE received', message);
-            // TODO: Connect to conversation manager in next step
-            sendResponse({ success: true, message: 'Handler registered' });
+
+        // ADD_MESSAGE: Add message to conversation history
+        // This will trigger adding the message to the conversation manager
+        this.registerHandler('ADD_MESSAGE', async (message, sender, sendResponse) => {
+            if (this.conversationManager) {
+                try {
+                    await this.conversationManager.addMessage(
+                        message.text, 
+                        message.sender, 
+                        sender.tab.id
+                    );
+                } catch (error) {
+                    this.errorHandler.error('MessageRouter', 'ADD_MESSAGE failed', error.message);
+                    // Continue gracefully - conversation storage failure shouldn't break the UI
+                }
+            }
+            sendResponse({ success: true });
         });
 
+        // GET_CONVERSATION: Retrieve conversation history for displaying in new tabs
+        // This loads stored messages when a tab is opened or refreshed
         this.registerHandler('GET_CONVERSATION', (message, sender, sendResponse) => {
             this.errorHandler.debug('MessageRouter', 'GET_CONVERSATION received');
             sendResponse({ messages: [] }); // Empty for now
         });
 
+        // CLEAR_CONVERSATION: Clear conversation history across all tabs
+        // This will trigger clearing storage and broadcasting the update
         this.registerHandler('CLEAR_CONVERSATION', (message, sender, sendResponse) => {
             this.errorHandler.debug('MessageRouter', 'CLEAR_CONVERSATION received');
             sendResponse({ success: true });
@@ -107,5 +127,9 @@ globalThis.MessageRouter = class MessageRouter {
                 // Ignore errors for tabs without content script
             });
         }
+    }
+
+    setConversationManager(conversationManager) {
+        this.conversationManager = conversationManager;
     }
 };

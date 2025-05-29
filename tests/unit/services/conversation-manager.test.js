@@ -129,8 +129,113 @@ describe('ConversationManager', () => {
     });
   });
   
+  describe('Add message functionality', () => {
+    beforeEach(() => {
+      // Reset conversation manager state
+      conversationManager.messages = [];
+      chrome.storage.local.get.mockClear();
+      chrome.storage.local.set.mockClear();
+    });
+
+    test('addMessage creates message with correct structure', async () => {
+      chrome.storage.local.set.mockResolvedValue();
+      
+      const testText = 'Hello world';
+      const testSender = 'user';
+      const testTabId = 123;
+      
+      const result = await conversationManager.addMessage(testText, testSender, testTabId);
+      
+      expect(result).toMatchObject({
+        id: expect.stringMatching(/^msg_\d+_0\.\d+$/),
+        text: testText,
+        sender: testSender,
+        timestamp: expect.any(Number)
+      });
+    });
+
+    test('addMessage adds message to internal array', async () => {
+      chrome.storage.local.set.mockResolvedValue();
+      
+      await conversationManager.addMessage('Message 1', 'user', 123);
+      await conversationManager.addMessage('Message 2', 'ai', 123);
+      
+      const messages = conversationManager.getConversation();
+      expect(messages).toHaveLength(2);
+      expect(messages[0].text).toBe('Message 1');
+      expect(messages[1].text).toBe('Message 2');
+    });
+
+    test('addMessage calls saveToStorage', async () => {
+      chrome.storage.local.set.mockResolvedValue();
+      
+      await conversationManager.addMessage('Test message', 'user', 123);
+      
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+        conversation: expect.arrayContaining([
+          expect.objectContaining({
+            text: 'Test message',
+            sender: 'user'
+          })
+        ]),
+        lastUpdated: expect.any(Number)
+      });
+    });
+
+    test('addMessage enforces maxMessages limit', async () => {
+      chrome.storage.local.set.mockResolvedValue();
+      
+      // Set a low limit for testing
+      conversationManager.maxMessages = 3;
+      
+      await conversationManager.addMessage('Message 1', 'user', 123);
+      await conversationManager.addMessage('Message 2', 'user', 123);
+      await conversationManager.addMessage('Message 3', 'user', 123);
+      await conversationManager.addMessage('Message 4', 'user', 123);
+      
+      const messages = conversationManager.getConversation();
+      expect(messages).toHaveLength(3);
+      expect(messages[0].text).toBe('Message 2'); // First message removed
+      expect(messages[2].text).toBe('Message 4'); // Latest message kept
+    });
+
+    test('addMessage generates unique IDs', async () => {
+      chrome.storage.local.set.mockResolvedValue();
+      
+      const message1 = await conversationManager.addMessage('Message 1', 'user', 123);
+      const message2 = await conversationManager.addMessage('Message 2', 'user', 123);
+      
+      expect(message1.id).not.toBe(message2.id);
+      expect(message1.id).toMatch(/^msg_\d+_0\.\d+$/);
+      expect(message2.id).toMatch(/^msg_\d+_0\.\d+$/);
+    });
+
+    test('addMessage handles storage errors gracefully', async () => {
+      chrome.storage.local.set.mockRejectedValue(new Error('Storage failed'));
+      
+      // Should not throw
+      const result = await conversationManager.addMessage('Test message', 'user', 123);
+      
+      expect(result).toBeDefined();
+      expect(result.text).toBe('Test message');
+      
+      // Message should still be in memory even if storage failed
+      const messages = conversationManager.getConversation();
+      expect(messages).toHaveLength(1);
+    });
+
+    test('addMessage returns message that matches internal storage', async () => {
+      chrome.storage.local.set.mockResolvedValue();
+      
+      const returned = await conversationManager.addMessage('Test message', 'user', 123);
+      const stored = conversationManager.getConversation();
+      
+      expect(stored).toHaveLength(1);
+      expect(stored[0]).toEqual(returned);
+    });
+  });
+  
   // TODO: Add tests for each step as we implement
-  // Step 5: Add message tests  
   // Step 6: Broadcasting tests
   // Step 8: Clear conversation tests
 });
