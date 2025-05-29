@@ -237,8 +237,22 @@ window.ChatEvents = (function() {
     // Add system message to chat
     window.ChatUI.addMessage(container, 'Connection lost. Please check your internet connection.', 'system');
     
+    // Store system message in background for conversation history and cross-tab sync
+    chrome.runtime.sendMessage({
+      type: 'ADD_MESSAGE',
+      text: 'Connection lost. Please check your internet connection.',
+      sender: 'system'
+    });
+    
     if (canReconnect) {
       window.ChatUI.addMessage(container, 'Click "Reconnect" to try again.', 'system');
+      
+      // Store system message in background for conversation history and cross-tab sync
+      chrome.runtime.sendMessage({
+        type: 'ADD_MESSAGE',
+        text: 'Click "Reconnect" to try again.',
+        sender: 'system'
+      });
     }
   }
 

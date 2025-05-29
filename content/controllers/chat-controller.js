@@ -126,12 +126,26 @@ window.ChatController = (function() {
       // Add system message immediately
       window.ChatUI.addMessage(container, 'Screenshot sent', 'system');
       
+      // Store system message in background for conversation history and cross-tab sync
+      chrome.runtime.sendMessage({
+        type: 'ADD_MESSAGE',
+        text: 'Screenshot sent',
+        sender: 'system'
+      });
+      
       // Send screenshot request to background script
       chrome.runtime.sendMessage({
         type: 'TAKE_SCREENSHOT'
       }, (response) => {
         if (chrome.runtime.lastError || !response?.success) {
           window.ChatUI.addMessage(container, 'Screenshot failed', 'system');
+          
+          // Store error message in background for conversation history and cross-tab sync
+          chrome.runtime.sendMessage({
+            type: 'ADD_MESSAGE',
+            text: 'Screenshot failed',
+            sender: 'system'
+          });
         } else {
           // Show typing indicator for AI response
           MessageView.showTypingIndicator(container);

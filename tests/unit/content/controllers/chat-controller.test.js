@@ -397,6 +397,13 @@ describe('ChatController', () => {
             // Verify system message is added immediately
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, 'Screenshot sent', 'system');
             
+            // Verify system message is stored in background
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+                type: 'ADD_MESSAGE',
+                text: 'Screenshot sent',
+                sender: 'system'
+            });
+            
             // Verify screenshot request is sent to background
             expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith(
                 { type: 'TAKE_SCREENSHOT' },
@@ -405,10 +412,12 @@ describe('ChatController', () => {
         });
 
         it('shows typing indicator on successful screenshot', () => {
-            // Mock successful response
-            const mockCallback = jest.fn();
+            // Mock sendMessage to handle both calls
             global.chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-                callback({ success: true });
+                // Only call callback for TAKE_SCREENSHOT (which has a callback)
+                if (message.type === 'TAKE_SCREENSHOT' && callback) {
+                    callback({ success: true });
+                }
             });
 
             window.ChatController.takeScreenshot(mockContainer);
@@ -418,15 +427,25 @@ describe('ChatController', () => {
         });
 
         it('shows error message on screenshot failure', () => {
-            // Mock failed response
+            // Mock sendMessage to handle both calls - TAKE_SCREENSHOT fails
             global.chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-                callback({ success: false });
+                if (message.type === 'TAKE_SCREENSHOT' && callback) {
+                    callback({ success: false });
+                }
             });
 
             window.ChatController.takeScreenshot(mockContainer);
 
-            // Verify error message is shown
+            // Verify error message is shown in UI
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, 'Screenshot failed', 'system');
+            
+            // Verify error message is stored in background
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+                type: 'ADD_MESSAGE',
+                text: 'Screenshot failed',
+                sender: 'system'
+            });
+            
             expect(global.MessageView.showTypingIndicator).not.toHaveBeenCalled();
         });
 
@@ -434,13 +453,23 @@ describe('ChatController', () => {
             // Mock chrome runtime error
             global.chrome.runtime.lastError = { message: 'Extension context invalidated' };
             global.chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-                callback();
+                if (message.type === 'TAKE_SCREENSHOT' && callback) {
+                    callback();
+                }
             });
 
             window.ChatController.takeScreenshot(mockContainer);
 
-            // Verify error message is shown
+            // Verify error message is shown in UI
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, 'Screenshot failed', 'system');
+            
+            // Verify error message is stored in background
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+                type: 'ADD_MESSAGE',
+                text: 'Screenshot failed',
+                sender: 'system'
+            });
+            
             expect(global.MessageView.showTypingIndicator).not.toHaveBeenCalled();
         });
     });
