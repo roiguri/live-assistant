@@ -4,6 +4,12 @@ globalThis.ConversationManager = class ConversationManager {
         this.messages = [];
         this.maxMessages = 100;
         this.errorHandler = new globalThis.ErrorHandler();
+        this.init(); // Add initialization
+    }
+    
+    async init() {
+        await this.loadFromStorage();
+        this.errorHandler.info('ConversationManager', `Loaded ${this.messages.length} messages from storage`);
     }
     
     // Stub methods for now - will be implemented in later steps
@@ -17,13 +23,30 @@ globalThis.ConversationManager = class ConversationManager {
     }
     
     async loadFromStorage() {
-        this.errorHandler.debug('ConversationManager', 'loadFromStorage called');
-        // TODO: Implement in Step 3
+        try {
+            const result = await chrome.storage.local.get(['conversation']);
+            this.messages = result.conversation || [];
+            this.errorHandler.debug('ConversationManager', 'Storage loaded', {
+                messageCount: this.messages.length
+            });
+        } catch (error) {
+            this.errorHandler.handleStorageError(error.message, 'load conversation');
+            this.messages = [];
+        }
     }
     
     async saveToStorage() {
-        this.errorHandler.debug('ConversationManager', 'saveToStorage called');
-        // TODO: Implement in Step 3
+        try {
+            await chrome.storage.local.set({
+                conversation: this.messages,
+                lastUpdated: Date.now()
+            });
+            this.errorHandler.debug('ConversationManager', 'Saved to storage', {
+                messageCount: this.messages.length
+            });
+        } catch (error) {
+            this.errorHandler.handleStorageError(error.message, 'save conversation');
+        }
     }
     
     broadcastUpdate() {
