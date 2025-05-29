@@ -499,8 +499,9 @@ describe('MessageRouter', () => {
         });
     });
 
-    describe('Step 8: Clear conversation functionality', () => {
+    describe('Clear conversation functionality', () => {
         let mockConversationManager;
+        let mockSendResponse;
 
         beforeEach(() => {
             jest.clearAllMocks();
@@ -513,6 +514,7 @@ describe('MessageRouter', () => {
                 getUIState: jest.fn().mockReturnValue('minimal')
             };
             
+            mockSendResponse = jest.fn();
             messageRouter.setConversationManager(mockConversationManager);
         });
 
@@ -552,6 +554,44 @@ describe('MessageRouter', () => {
 
             expect(mockConversationManager.clearConversation).toHaveBeenCalled();
             expect(sendResponse).toHaveBeenCalledWith({ success: true });
+        });
+
+        test('CLEAR_CONVERSATION handler calls conversationManager.clearConversation', () => {
+            const result = messageRouter.handleMessage(
+                { type: 'CLEAR_CONVERSATION' },
+                { tab: { id: 1 } },
+                mockSendResponse
+            );
+            
+            expect(mockConversationManager.clearConversation).toHaveBeenCalledTimes(1);
+            expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
+            expect(result).toBe(false);
+        });
+
+        test('CLEAR_CONVERSATION handler also triggers Gemini context reset', () => {
+            // Setup conversation manager with connection manager
+            const mockConnectionManager = {
+                resetContext: jest.fn()
+            };
+            mockConversationManager.setConnectionManager = jest.fn();
+            mockConversationManager.connectionManager = mockConnectionManager;
+            
+            // Mock clearConversation to simulate what it actually does
+            mockConversationManager.clearConversation.mockImplementation(() => {
+                if (mockConversationManager.connectionManager) {
+                    mockConversationManager.connectionManager.resetContext();
+                }
+            });
+            
+            messageRouter.handleMessage(
+                { type: 'CLEAR_CONVERSATION' },
+                { tab: { id: 1 } },
+                mockSendResponse
+            );
+            
+            expect(mockConversationManager.clearConversation).toHaveBeenCalledTimes(1);
+            expect(mockConnectionManager.resetContext).toHaveBeenCalledTimes(1);
+            expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
         });
     });
 

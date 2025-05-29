@@ -5,6 +5,7 @@ globalThis.ConversationManager = class ConversationManager {
         this.maxMessages = 100;
         this.currentUIState = 'minimal'; // Track current UI state across tabs
         this.errorHandler = new globalThis.ErrorHandler();
+        this.connectionManager = null; // Will be set by setConnectionManager
         this.init(); // Add initialization
     }
     
@@ -157,6 +158,21 @@ globalThis.ConversationManager = class ConversationManager {
         this.saveToStorage();
         this.broadcastUpdate();
         
-        this.errorHandler.info('ConversationManager', 'Conversation cleared and broadcast');
+        // Reset Gemini conversation context to start fresh
+        if (this.connectionManager) {
+            try {
+                this.connectionManager.resetContext();
+                this.errorHandler.info('ConversationManager', 'Conversation cleared, Gemini context reset');
+            } catch (error) {
+                this.errorHandler.error('ConversationManager', 'Context reset failed during conversation clear', error.message);
+                this.errorHandler.info('ConversationManager', 'Conversation cleared (context reset failed)');
+            }
+        } else {
+            this.errorHandler.info('ConversationManager', 'Conversation cleared');
+        }
+    }
+    
+    setConnectionManager(connectionManager) {
+        this.connectionManager = connectionManager;
     }
 };

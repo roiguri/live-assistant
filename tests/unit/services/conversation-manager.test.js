@@ -12,13 +12,13 @@ describe('ConversationManager', () => {
     global.chrome = {
       storage: {
         local: {
-          get: jest.fn(),
-          set: jest.fn()
+          get: jest.fn().mockResolvedValue({}), // Default to empty object
+          set: jest.fn().mockResolvedValue()
         }
       },
       tabs: {
         query: jest.fn(),
-        sendMessage: jest.fn()
+        sendMessage: jest.fn().mockResolvedValue() // Ensure it returns a promise
       },
       runtime: {
         lastError: null
@@ -29,6 +29,8 @@ describe('ConversationManager', () => {
     // Reset Chrome API mocks
     chrome.storage.local.get.mockClear();
     chrome.storage.local.set.mockClear();
+    chrome.tabs.query.mockClear();
+    chrome.tabs.sendMessage.mockClear();
     
     // Create new instance for each test (this will call init)
     conversationManager = new globalThis.ConversationManager();
@@ -38,7 +40,7 @@ describe('ConversationManager', () => {
     jest.clearAllMocks();
   });
   
-  describe('Step 1: Initial Setup', () => {
+  describe('Initial Setup', () => {
     test('initializes with empty messages array', () => {
       expect(conversationManager.messages).toEqual([]);
       expect(conversationManager.maxMessages).toBe(100);
@@ -485,6 +487,94 @@ describe('ConversationManager', () => {
       }).not.toThrow();
       
       expect(conversationManager.messages).toHaveLength(0);
+    });
+
+    describe('Connection Manager Integration', () => {
+        let mockConnectionManager;
+
+        beforeEach(() => {
+            conversationManager.messages = [
+                { id: 'msg_1', text: 'Hello', sender: 'user', timestamp: 123 },
+                { id: 'msg_2', text: 'Hi there!', sender: 'ai', timestamp: 124 }
+            ];
+            mockChrome.storage.local.set.mockClear();
+            mockChrome.tabs.query.mockClear();
+            mockChrome.tabs.sendMessage.mockClear();
+
+            mockConnectionManager = {
+                resetContext: jest.fn()
+            };
+        });
+
+        test('setConnectionManager sets the connection manager', () => {
+            conversationManager.setConnectionManager(mockConnectionManager);
+            
+            expect(conversationManager.connectionManager).toBe(mockConnectionManager);
+        });
+
+        test('clearConversation resets Gemini context when connection manager is available', async () => {
+            conversationManager.setConnectionManager(mockConnectionManager);
+            mockChrome.storage.local.set.mockResolvedValue();
+            mockChrome.tabs.query.mockImplementation((query, callback) => {
+                callback([{ id: 1 }, { id: 2 }]);
+            });
+            mockChrome.tabs.sendMessage.mockResolvedValue();
+            
+            conversationManager.clearConversation();
+            
+            // Verify conversation is cleared
+            expect(conversationManager.messages).toEqual([]);
+            
+            // Verify context reset is called
+            expect(mockConnectionManager.resetContext).toHaveBeenCalledTimes(1);
+            
+            // Verify storage is called
+            expect(mockChrome.storage.local.set).toHaveBeenCalled();
+            
+            // Verify broadcast is attempted (tabs.query should be called)
+            expect(mockChrome.tabs.query).toHaveBeenCalled();
+        });
+
+        test('clearConversation works normally when no connection manager is set', async () => {
+            // Don't set connection manager
+            mockChrome.storage.local.set.mockResolvedValue();
+            mockChrome.tabs.query.mockImplementation((query, callback) => {
+                callback([{ id: 1 }]);
+            });
+            
+            expect(() => {
+                conversationManager.clearConversation();
+            }).not.toThrow();
+            
+            // Verify conversation is still cleared
+            expect(conversationManager.messages).toEqual([]);
+            
+            // Verify storage and broadcast still work
+            expect(mockChrome.storage.local.set).toHaveBeenCalled();
+            expect(mockChrome.tabs.sendMessage).toHaveBeenCalled();
+        });
+
+        test('clearConversation handles connection manager reset errors gracefully', async () => {
+            mockConnectionManager.resetContext.mockImplementation(() => {
+                throw new Error('Reset failed');
+            });
+            conversationManager.setConnectionManager(mockConnectionManager);
+            
+            mockChrome.storage.local.set.mockResolvedValue();
+            mockChrome.tabs.query.mockImplementation((query, callback) => {
+                callback([]);
+            });
+            mockChrome.tabs.sendMessage.mockResolvedValue();
+            
+            expect(() => {
+                conversationManager.clearConversation();
+            }).not.toThrow();
+            
+            // Verify conversation is still cleared even if reset fails
+            expect(conversationManager.messages).toEqual([]);
+            expect(mockConnectionManager.resetContext).toHaveBeenCalled();
+            expect(mockChrome.storage.local.set).toHaveBeenCalled();
+        });
     });
   });
 

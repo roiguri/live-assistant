@@ -300,6 +300,31 @@ Guidelines:
       this.connectionState.websocket = 'disconnected'; 
       this.initializeConnection(); 
     }
+    
+    resetContext() {
+      this.errorHandler.info('Connection', 'Resetting Gemini conversation context');
+      
+      // Clear any current streaming response
+      this.currentResponse = '';
+      
+      try {
+        // Clean up the current connection
+        this.cleanupConnection();
+      } catch (error) {
+        this.errorHandler.error('Connection', 'Error during cleanup in resetContext', error.message);
+      }
+      
+      // Reset connection state for fresh start
+      this.connectionState.reconnectAttempts = 0;
+      this.connectionState.reconnectDelay = 5000;
+      this.connectionState.lastError = null;
+      this.connectionState.websocket = 'disconnected';
+      
+      // Establish new connection (which will create fresh conversation context)
+      setTimeout(() => {
+        this.initializeConnection();
+      }, 500); // Small delay to ensure cleanup is complete
+    }
   
     notifyContentScriptOfConnectionLoss() {
       chrome.tabs.query({}, (tabs) => {
