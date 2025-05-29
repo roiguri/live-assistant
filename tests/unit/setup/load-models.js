@@ -22,19 +22,31 @@ function loadChatState() {
 }
 
 function loadServices() {
-  // Load ErrorHandler first (GeminiClient depends on it)
+  // Load ErrorHandler first (others depend on it)
   const errorHandlerPath = path.join(__dirname, '../../../services/error-handler.js');
   const errorHandlerCode = fs.readFileSync(errorHandlerPath, 'utf8');
   eval(errorHandlerCode);
+
+  // Load ApiService (ConnectionManager depends on it)
+  const apiServicePath = path.join(__dirname, '../../../services/api-service.js');
+  const apiServiceCode = fs.readFileSync(apiServicePath, 'utf8');
+  eval(apiServiceCode);
 
   // Load GeminiClient
   const geminiClientPath = path.join(__dirname, '../../../services/gemini-client.js');
   const geminiClientCode = fs.readFileSync(geminiClientPath, 'utf8');
   eval(geminiClientCode);
 
+  // Load ConnectionManager
+  const connectionManagerPath = path.join(__dirname, '../../../services/connection-manager.js');
+  const connectionManagerCode = fs.readFileSync(connectionManagerPath, 'utf8');
+  eval(connectionManagerCode);
+
   return { 
     ErrorHandler: global.ErrorHandler, 
-    GeminiClient: global.GeminiClient 
+    GeminiClient: global.GeminiClient,
+    ApiService: global.ApiService,
+    ConnectionManager: global.ConnectionManager
   };
 }
 
