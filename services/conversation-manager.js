@@ -85,8 +85,12 @@ globalThis.ConversationManager = class ConversationManager {
                     chrome.tabs.sendMessage(tab.id, {
                         type: 'CONVERSATION_UPDATE',
                         messages: this.messages
-                    }).catch(() => {
-                        // Silently ignore - tab might not have content script
+                    }, (response) => {
+                        // Check for errors in the callback
+                        if (chrome.runtime.lastError) {
+                            // Silently ignore - tab might not have content script
+                            this.errorHandler.debug('ConversationManager', 'Send message failed', chrome.runtime.lastError.message);
+                        }
                     });
                 });
                 
@@ -112,8 +116,12 @@ globalThis.ConversationManager = class ConversationManager {
                     chrome.tabs.sendMessage(tab.id, {
                         type: 'UI_STATE_UPDATE',
                         uiState: this.currentUIState
-                    }).catch(() => {
-                        // Silently ignore - tab might not have content script
+                    }, (response) => {
+                        // Check for errors in the callback
+                        if (chrome.runtime.lastError) {
+                            // Silently ignore - tab might not have content script
+                            this.errorHandler.debug('ConversationManager', 'Send UI state message failed', chrome.runtime.lastError.message);
+                        }
                     });
                 });
                 
