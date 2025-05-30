@@ -101,7 +101,7 @@ window.ChatController = (function() {
           window.ChatUI.toggleFullChat(container);
           break;
         case 'clear-chat':
-          if (confirm('Clear all messages?')) {
+          if (confirm('Start a new chat? (Previous chat won\'t be saved)')) {
             // Clear conversation via background to sync across all tabs
             chrome.runtime.sendMessage({
               type: 'CLEAR_CONVERSATION'

@@ -365,7 +365,7 @@ describe('ChatController', () => {
 
             window.ChatController.changeState(mockContainer, 'clear-chat');
 
-            expect(global.confirm).toHaveBeenCalledWith('Clear all messages?');
+            expect(global.confirm).toHaveBeenCalledWith('Start a new chat? (Previous chat won\'t be saved)');
             expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
                 type: 'CLEAR_CONVERSATION'
             });
@@ -376,7 +376,7 @@ describe('ChatController', () => {
 
             window.ChatController.changeState(mockContainer, 'clear-chat');
 
-            expect(global.confirm).toHaveBeenCalledWith('Clear all messages?');
+            expect(global.confirm).toHaveBeenCalledWith('Start a new chat? (Previous chat won\'t be saved)');
             expect(global.chrome.runtime.sendMessage).not.toHaveBeenCalled();
         });
 

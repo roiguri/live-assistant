@@ -31,8 +31,8 @@ window.ChatView = (function() {
                     <button class="menu-item" data-action="take-screenshot" title="Take screenshot">
                         <span class="menu-icon">📸</span>
                     </button>
-                    <button class="menu-item" data-action="clear-chat" title="Clear chat">
-                        <span class="menu-icon">🗑️</span>
+                    <button class="menu-item" data-action="clear-chat" title="New chat">
+                        <span class="menu-icon">➕</span>
                     </button>
                 </div>
 
