@@ -851,8 +851,8 @@ describe('ChatEvents', () => {
 
             // Mock document.createElement to track element creation
             const mockMessageElements = [
-                { className: '', textContent: '', appendChild: jest.fn() },
-                { className: '', textContent: '', appendChild: jest.fn() }
+                { className: '', textContent: '', innerHTML: '', appendChild: jest.fn() },
+                { className: '', textContent: '', innerHTML: '', appendChild: jest.fn() }
             ];
             
             let elementIndex = 0;
@@ -869,7 +869,7 @@ describe('ChatEvents', () => {
             expect(mockMessageElements[0].className).toBe('message message-user');
             expect(mockMessageElements[0].textContent).toBe('User message');
             expect(mockMessageElements[1].className).toBe('message message-ai');
-            expect(mockMessageElements[1].textContent).toBe('AI response');
+            expect(mockMessageElements[1].innerHTML).toBe('<p>AI response</p>');
         });
     });
 }); 

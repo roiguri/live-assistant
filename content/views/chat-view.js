@@ -101,7 +101,11 @@ window.ChatView = (function() {
         const messagesArea = container.querySelector('.chat-messages');
         const messageEl = document.createElement('div');
         messageEl.className = `message message-${sender}`;
-        messageEl.textContent = text;
+        if (sender === 'ai') {
+            messageEl.innerHTML = marked.parse(text);
+        } else {
+            messageEl.textContent = text;
+        }
         messagesArea.appendChild(messageEl);
         messagesArea.scrollTop = messagesArea.scrollHeight;
     }
@@ -128,7 +132,7 @@ window.ChatView = (function() {
         if (lastMessage && lastMessage.sender === 'ai') {
             recentArea.innerHTML = `
                 <div class="message message-ai recent-message">
-                    ${lastMessage.text}
+                    ${marked.parse(lastMessage.text)}
                 </div>
             `;
         } else {

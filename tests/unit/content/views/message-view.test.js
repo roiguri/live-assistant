@@ -117,6 +117,10 @@ describe('MessageView', () => {
             streamingMessage: {
                 className: '',
                 textContent: '',
+                innerHTML: '',
+                setAttribute: jest.fn(),
+                getAttribute: jest.fn(),
+                removeAttribute: jest.fn(),
                 classList: {
                     add: jest.fn(),
                     remove: jest.fn(),
@@ -127,6 +131,10 @@ describe('MessageView', () => {
             lastMessage: {
                 className: 'message message-ai',
                 textContent: 'Last AI message',
+                innerHTML: '',
+                setAttribute: jest.fn(),
+                getAttribute: jest.fn(),
+                removeAttribute: jest.fn(),
                 classList: {
                     add: jest.fn(),
                     remove: jest.fn(),
@@ -272,6 +280,7 @@ describe('MessageView', () => {
             
             window.MessageView.updateStreamingMessage(responseElement, newText);
 
+            expect(responseElement.setAttribute).toHaveBeenCalledWith('data-raw-text', newText);
             expect(responseElement.textContent).toBe(newText);
             expect(responseElement.closest).toHaveBeenCalledWith('.chat-messages');
             expect(mockElements.messagesArea.scrollTop).toBe(100);
@@ -296,10 +305,15 @@ describe('MessageView', () => {
     describe('finalizeStreamingMessage', () => {
         it('removes streaming class and updates state', () => {
             const responseElement = mockElements.streamingMessage;
+            const testText = 'Complete message text';
+            responseElement.getAttribute.mockReturnValue(testText);
             
             window.MessageView.finalizeStreamingMessage(responseElement);
 
+            expect(responseElement.getAttribute).toHaveBeenCalledWith('data-raw-text');
+            expect(responseElement.innerHTML).toBe('<p>Complete message text</p>');
             expect(responseElement.classList.remove).toHaveBeenCalledWith('streaming');
+            expect(responseElement.removeAttribute).toHaveBeenCalledWith('data-raw-text');
             expect(global.ConnectionState.setStreaming).toHaveBeenCalledWith(false);
         });
 
@@ -321,7 +335,7 @@ describe('MessageView', () => {
 
             expect(mockContainer.getAttribute).toHaveBeenCalledWith('data-state');
             expect(mockContainer.querySelector).toHaveBeenCalledWith('.chat-recent .recent-message');
-            expect(mockElements.recentArea.textContent).toBe(text);
+            expect(mockElements.recentArea.innerHTML).toBe('<p>Updated recent message</p>');
         });
 
         it('does nothing when not in recent state', () => {

@@ -290,7 +290,7 @@ describe('ChatView', () => {
             window.ChatView.updateRecentArea(mockContainer);
 
             expect(mockElements.recentArea.innerHTML).toContain('message-ai recent-message');
-            expect(mockElements.recentArea.innerHTML).toContain('Hello from AI');
+            expect(mockElements.recentArea.innerHTML).toContain('<p>Hello from AI</p>');
         });
 
         it('clears area when no AI message', () => {

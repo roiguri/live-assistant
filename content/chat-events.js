@@ -357,7 +357,11 @@ window.ChatEvents = (function() {
     messages.forEach(msg => {
       const messageEl = document.createElement('div');
       messageEl.className = `message message-${msg.sender}`;
-      messageEl.textContent = msg.text;
+      if (msg.sender === 'ai') {
+        messageEl.innerHTML = marked.parse(msg.text);
+      } else {
+          messageEl.textContent = msg.text;
+      }
       messagesArea.appendChild(messageEl);
     });
     

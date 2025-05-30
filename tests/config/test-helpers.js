@@ -25,6 +25,15 @@ global.chrome = {
   }
 };
 
+// Marked.js Mock for markdown parsing
+global.marked = {
+  parse: jest.fn((text) => {
+    // Simple mock that returns basic HTML for testing
+    // Replace newlines with <br> and wrap in <p> tags
+    return `<p>${text.replace(/\n/g, '<br>')}</p>`;
+  })
+};
+
 // WebSocket Mock with State
 class MockWebSocket {
   constructor(url) {

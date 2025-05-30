@@ -436,3 +436,54 @@
 #assistant-chat .connection-status + .chat-main .chat-input-area {
   border-radius: 0 0 8px 8px;
 }
+
+/* Markdown formatting styles */
+.message-ai code {
+  background: #f0f0f0;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+}
+
+.message-ai pre {
+  background: #f8f9fa;
+  padding: 8px 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.message-ai pre code {
+  background: none;
+  padding: 0;
+}
+
+.message-ai ul, .message-ai ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.message-ai li {
+  margin: 2px 0;
+}
+
+.message-ai strong {
+  font-weight: 600;
+}
+
+.message-ai em {
+  font-style: italic;
+}
+
+.message-ai h1, .message-ai h2, .message-ai h3 {
+  margin: 12px 0 8px 0;
+  font-weight: 600;
+}
+
+.message-ai blockquote {
+  border-left: 3px solid #007AFF;
+  margin: 8px 0;
+  padding: 4px 0 4px 12px;
+  color: #666;
+}

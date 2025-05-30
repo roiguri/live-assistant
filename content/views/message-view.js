@@ -44,8 +44,12 @@ window.MessageView = (function() {
     function updateStreamingMessage(responseElement, newText) {
         if (!responseElement) return;
         
-        responseElement.textContent = newText;
+        // Store complete accumulated text as raw markdown
+        responseElement.setAttribute('data-raw-text', newText);
         
+        // During streaming: show raw text to avoid broken parsing
+        responseElement.textContent = newText;  
+      
         // Auto-scroll to bottom
         const messagesArea = responseElement.closest('.chat-messages');
         if (messagesArea) {
@@ -55,7 +59,11 @@ window.MessageView = (function() {
     
     function finalizeStreamingMessage(responseElement) {
         if (responseElement) {
+            const completeText = responseElement.getAttribute('data-raw-text') || responseElement.textContent;
+            responseElement.innerHTML = marked.parse(completeText);
+
             responseElement.classList.remove('streaming');
+            responseElement.removeAttribute('data-raw-text');
         }
         ConnectionState.setStreaming(false);
     }
@@ -65,7 +73,7 @@ window.MessageView = (function() {
         if (container.getAttribute('data-state') === 'recent') {
             const recentArea = container.querySelector('.chat-recent .recent-message');
             if (recentArea) {
-                recentArea.textContent = text;
+                recentArea.innerHTML = marked.parse(text);
             }
         }
     }
