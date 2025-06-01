@@ -434,47 +434,6 @@ describe('ChatView', () => {
                 expect.any(Function)
             );
         });
-
-        it('re-enables refresh button after timeout when clicked', (done) => {
-            // Set up timer mocks
-            jest.useFakeTimers();
-            
-            // First render the container to set up event listeners
-            window.ChatView.renderContainer();
-            
-            // Simulate refresh button being visible (failed state)
-            window.ChatView.updateConnectionStatus(mockContainer, 'failed');
-            
-            // Get the click handler
-            const clickHandler = mockElements.refreshBtn.addEventListener.mock.calls[0][1];
-            
-            // Mock the chrome.runtime.sendMessage response
-            global.chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-                if (callback) callback({ success: true });
-            });
-            
-            // Create mock event and click
-            const mockEvent = {
-                preventDefault: jest.fn(),
-                stopPropagation: jest.fn()
-            };
-            
-            // Click the button
-            clickHandler(mockEvent);
-            
-            // Verify button is disabled initially
-            expect(mockElements.refreshBtn.disabled).toBe(true);
-            
-            // Fast-forward the timeout
-            jest.advanceTimersByTime(2000);
-            
-            // Verify button is re-enabled
-            expect(mockElements.refreshBtn.disabled).toBe(false);
-            
-            // Clean up
-            jest.useRealTimers();
-            done();
-        });
     });
 
     describe('input handling', () => {

@@ -132,23 +132,26 @@ p {
   direction: ltr;
 }
 
+.title-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .title-text {
   font-size: 13px;
   font-weight: 500;
   color: #666;
   user-select: none;
-  flex-grow: 1; /* Allows it to take available space */
-  margin-left: 0; /* Ensure no extra left margin if refresh is before it */
 }
 
 .connection-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  margin-right: 8px;
   flex-shrink: 0;
-  background-color: #ffc107; /* Default to connecting state (yellow) */
-  animation: pulse 1.5s ease-in-out infinite alternate; /* Default to connecting animation */
+  background-color: #ffc107;
+  animation: pulse 1.5s ease-in-out infinite alternate;
 }
 
 .connection-dot.connected {
@@ -178,7 +181,6 @@ p {
   justify-content: center;
   padding: 0;
   border-radius: 50%;
-  margin-left: 5px;
 }
 
 .refresh-btn:disabled {

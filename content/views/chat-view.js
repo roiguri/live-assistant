@@ -32,9 +32,11 @@ window.ChatView = (function() {
                 </div>
 
                 <div class="title-panel" style="display: none;">
-                    <span class="connection-dot"></span>
-                    <span class="title-text">Live Assistant</span>
-                    <button class="refresh-btn" title="Refresh connection">↻</button>
+                    <div class="title-left">
+                        <span class="connection-dot"></span>
+                        <span class="title-text">Live Assistant</span>
+                        <button class="refresh-btn" title="Refresh connection">↻</button>
+                    </div>
                     <button class="minimize-btn" title="Minimize chat">
                         <span>×</span>
                     </button>
