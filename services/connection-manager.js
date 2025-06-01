@@ -272,14 +272,19 @@ globalThis.ConnectionManager = class ConnectionManager {
   sendSystemMessage(originalError) {
       let message = 'Connection failed.';
       
-      if (originalError.includes('API key') || originalError.includes('Setup timeout')) {
-          message = 'Connection failed - please check your API key.';
-      } else if (originalError.includes('WebSocket') || originalError.includes('network') || originalError.includes('timeout')) {
+      if (originalError.includes('No API key')) {
+        message = 'No API key configured - please add your API key in settings.';
+      } else if (originalError.includes('API key') || 
+              originalError.includes('401') || 
+              originalError.includes('403') ||
+              originalError.includes('Invalid API key')) {
+            message = 'Connection failed - please check your API key.';
+      } else if (originalError.includes('network') || 
+                originalError.includes('ERR_NETWORK') ||
+              originalError.includes('offline')) {
           message = 'Connection failed - please check your internet connection.';
-      } else if (originalError.includes('No API key')) {
-          message = 'No API key configured - please add your API key in settings.';
       } else {
-          message = `Connection failed - ${originalError}`;
+          message = 'Connection failed - please check your API key and internet connection.';
       }
       
       message += ' Click ↻ to retry.';
