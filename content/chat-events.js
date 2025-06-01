@@ -182,13 +182,6 @@ window.ChatEvents = (function() {
       }
     }
     
-    // Add global mouse event listeners when dragging starts
-    function addDragListeners() {
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', endDrag);
-        document.addEventListener('mouseleave', endDrag);
-    }
-    
     // Hover effects for drag handle
     dragHandle.addEventListener('mouseenter', () => {
       if (!isDragging) {
