@@ -8,7 +8,7 @@ window.ChatView = (function() {
         container.setAttribute('data-state', ChatState.getState());
         container.innerHTML = getChatHTML();
 
-        setupReconnectButton(container);
+        setupTitleBarControls(container);
 
         return container;
     }
@@ -16,11 +16,6 @@ window.ChatView = (function() {
     function getChatHTML() {
         return `
             <div class="chat-main">
-                <div class="connection-status" style="display: none;">
-                    <span class="status-indicator"></span>
-                    <span class="status-text">Connecting...</span>
-                    <button class="reconnect-btn" style="display: none;">Reconnect</button>
-                </div>
                 <button class="minimize-btn" title="Minimize chat" style="display: none;">
                     <span>-</span>
                 </button>
@@ -37,7 +32,9 @@ window.ChatView = (function() {
                 </div>
 
                 <div class="title-panel" style="display: none;">
+                    <span class="connection-dot"></span>
                     <span class="title-text">Live Assistant</span>
+                    <button class="refresh-btn" title="Refresh connection">↻</button>
                     <button class="minimize-btn" title="Minimize chat">
                         <span>×</span>
                     </button>
@@ -161,60 +158,58 @@ window.ChatView = (function() {
     }
 
     function updateConnectionStatus(container, status, canReconnect = false) {
-        const statusElement = container.querySelector('.connection-status');
-        const indicator = statusElement.querySelector('.status-indicator');
-        const text = statusElement.querySelector('.status-text');
-        const reconnectBtn = statusElement.querySelector('.reconnect-btn');
+        const connectionDot = container.querySelector('.connection-dot');
+        const refreshBtn = container.querySelector('.refresh-btn');
         
-        // Show/hide status bar
-        if (status === 'connected') {
-            statusElement.style.display = 'none';
-        } else {
-            statusElement.style.display = 'flex';
-        }
-        
-        // Update indicator and text based on status
+        if (!connectionDot) return; // Guard if dot not found
+
+        // Update connection dot class based on status
         switch (status) {
             case 'connecting':
             case 'reconnecting':
-                indicator.className = 'status-indicator connecting';
-                text.textContent = status === 'connecting' ? 'Connecting...' : 'Reconnecting...';
-                reconnectBtn.style.display = 'none';
+                connectionDot.className = 'connection-dot connecting';
                 break;
             case 'connected':
-                indicator.className = 'status-indicator connected';
-                text.textContent = 'Connected';
-                reconnectBtn.style.display = 'none';
+                connectionDot.className = 'connection-dot connected';
                 break;
             case 'disconnected':
-                indicator.className = 'status-indicator disconnected';
-                text.textContent = 'Disconnected';
-                reconnectBtn.style.display = canReconnect ? 'inline-block' : 'none';
+                connectionDot.className = 'connection-dot failed'; // Using 'failed' style for disconnected
                 break;
             case 'failed':
-                indicator.className = 'status-indicator failed';
-                text.textContent = 'Connection failed';
-                reconnectBtn.style.display = canReconnect ? 'inline-block' : 'none';
+                connectionDot.className = 'connection-dot failed';
                 break;
+            default:
+                connectionDot.className = 'connection-dot'; // Default connecting state (yellow with pulse)
+                break;
+        }
+
+        // Show/hide refresh button based on connection status
+        if (refreshBtn) {
+            const shouldShowRefresh = status === 'failed' || status === 'disconnected';
+            refreshBtn.style.display = shouldShowRefresh ? 'flex' : 'none';
         }
     }
     
-    function setupReconnectButton(container) {
-        const reconnectBtn = container.querySelector('.reconnect-btn');
+    function setupTitleBarControls(container) {
+        const refreshBtn = container.querySelector('.refresh-btn');
 
-        reconnectBtn.addEventListener('click', (e) => {
+        if (!refreshBtn) return; // Guard if button not found
+
+        refreshBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
 
             // Disable button during reconnection attempt
-            reconnectBtn.disabled = true;
-            reconnectBtn.textContent = 'Connecting...';
+            refreshBtn.disabled = true;
+            // Optionally, change icon or add a temporary "connecting" state visual to the button
+            // For now, the connection dot changing to 'connecting' is the primary feedback.
             
             chrome.runtime.sendMessage({ type: 'MANUAL_RECONNECT' }, (response) => {
-                // Button will be re-enabled when connection status updates
+                // Button will be re-enabled after a timeout,
+                // assuming connection status update might take time or not occur if already connected.
                 setTimeout(() => {
-                    reconnectBtn.disabled = false;
-                    reconnectBtn.textContent = 'Reconnect';
+                    refreshBtn.disabled = false;
+                    // Reset button style if changed
                 }, 2000);
             });
         });

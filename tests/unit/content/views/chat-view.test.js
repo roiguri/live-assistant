@@ -19,20 +19,6 @@ const createMockElement = () => {
 
 const mockCreateElement = jest.fn();
 
-// IMPORTANT: Set up document mock BEFORE loading the module
-Object.defineProperty(global, 'document', {
-    writable: true,
-    value: {
-        createElement: mockCreateElement,
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-        body: {
-            appendChild: jest.fn(),
-            style: {}
-        }
-    }
-});
-
 // Mock window at module level
 global.window = {
     innerHeight: 800
@@ -67,8 +53,9 @@ describe('ChatView', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         
-        // Clear createElement mock history
-        mockCreateElement.mockClear();
+        // Assign the mock to the JSDOM document's createElement
+        // This needs to be done in beforeEach after mocks are cleared and document is available
+        document.createElement = mockCreateElement;
         
         // Explicitly reset global window state that might affect calculations
         global.window = {
@@ -83,38 +70,31 @@ describe('ChatView', () => {
         
         // Create mock elements
         mockElements = {
-            messagesArea: { 
-                style: {}, 
-                innerHTML: '', 
-                appendChild: jest.fn(), 
-                scrollHeight: 100, 
-                scrollTop: 0 
+            messagesArea: {
+                style: {},
+                innerHTML: '',
+                appendChild: jest.fn(),
+                scrollHeight: 100,
+                scrollTop: 0
             },
-            recentArea: { 
-                style: {}, 
-                innerHTML: '' 
+            recentArea: {
+                style: {},
+                innerHTML: ''
             },
-            titlePanel: { 
-                style: {} 
+            titlePanel: {
+                style: {}
             },
-            statusElement: { 
-                style: {}, 
-                querySelector: jest.fn() 
+            connectionDot: {
+                className: ''
             },
-            indicator: { 
-                className: '' 
+            refreshBtn: { // New
+                style: {},
+                addEventListener: jest.fn(),
+                disabled: false,
+                textContent: ''
             },
-            text: { 
-                textContent: '' 
-            },
-            reconnectBtn: { 
-                style: {}, 
-                addEventListener: jest.fn(), 
-                disabled: false, 
-                textContent: '' 
-            },
-            input: { 
-                value: '  test input  ' 
+            input: {
+                value: '  test input  '
             },
             menuItem: { 
                 textContent: '' 
@@ -142,22 +122,10 @@ describe('ChatView', () => {
                 case '.chat-messages': return mockElements.messagesArea;
                 case '.chat-recent': return mockElements.recentArea;
                 case '.title-panel': return mockElements.titlePanel;
-                case '.connection-status': return mockElements.statusElement;
-                case '.status-indicator': return mockElements.indicator;
-                case '.status-text': return mockElements.text;
-                case '.reconnect-btn': return mockElements.reconnectBtn;
+                case '.connection-dot': return mockElements.connectionDot;
+                case '.refresh-btn': return mockElements.refreshBtn;
                 case '.chat-input': return mockElements.input;
                 case '[data-action="toggle-full"] .menu-text': return mockElements.menuItem;
-                default: return null;
-            }
-        });
-
-        // Set up nested querySelector for status element
-        mockElements.statusElement.querySelector.mockImplementation((selector) => {
-            switch (selector) {
-                case '.status-indicator': return mockElements.indicator;
-                case '.status-text': return mockElements.text;
-                case '.reconnect-btn': return mockElements.reconnectBtn;
                 default: return null;
             }
         });
@@ -185,8 +153,8 @@ describe('ChatView', () => {
             expect(mockCreateElement).toHaveBeenCalledWith('div');
             // The container should have innerHTML set (containing chat-main structure)
             expect(result.innerHTML).toContain('chat-main');
-            // Check that setupReconnectButton was called (which sets up event listener)
-            expect(mockElements.reconnectBtn.addEventListener).toHaveBeenCalledWith('click', expect.any(Function));
+            // Check that setupTitleBarControls was called (which sets up event listener on refreshBtn)
+            expect(mockElements.refreshBtn.addEventListener).toHaveBeenCalledWith('click', expect.any(Function));
         });
     });
 
@@ -355,45 +323,81 @@ describe('ChatView', () => {
     });
 
     describe('updateConnectionStatus', () => {
-        it('shows correct indicators for connecting state', () => {
+        it('sets correct class for connection dot in connecting state', () => {
             window.ChatView.updateConnectionStatus(mockContainer, 'connecting');
-
-            expect(mockElements.statusElement.style.display).toBe('flex');
-            expect(mockElements.indicator.className).toBe('status-indicator connecting');
-            expect(mockElements.text.textContent).toBe('Connecting...');
-            expect(mockElements.reconnectBtn.style.display).toBe('none');
+            expect(mockElements.connectionDot.className).toBe('connection-dot connecting');
+        });
+        
+        it('sets correct class for connection dot in reconnecting state', () => {
+            window.ChatView.updateConnectionStatus(mockContainer, 'reconnecting');
+            expect(mockElements.connectionDot.className).toBe('connection-dot connecting');
         });
 
-        it('handles connected state', () => {
+        it('sets correct class for connection dot in connected state', () => {
             window.ChatView.updateConnectionStatus(mockContainer, 'connected');
-
-            expect(mockElements.statusElement.style.display).toBe('none');
-            expect(mockElements.indicator.className).toBe('status-indicator connected');
-            expect(mockElements.text.textContent).toBe('Connected');
+            expect(mockElements.connectionDot.className).toBe('connection-dot connected');
         });
 
-        it('handles disconnected state', () => {
+        it('sets correct class for connection dot in disconnected state', () => {
             window.ChatView.updateConnectionStatus(mockContainer, 'disconnected');
-
-            expect(mockElements.statusElement.style.display).toBe('flex');
-            expect(mockElements.indicator.className).toBe('status-indicator disconnected');
-            expect(mockElements.text.textContent).toBe('Disconnected');
-            expect(mockElements.reconnectBtn.style.display).toBe('none');
+            expect(mockElements.connectionDot.className).toBe('connection-dot failed');
         });
 
-        it('shows reconnect button when canReconnect is true', () => {
-            window.ChatView.updateConnectionStatus(mockContainer, 'disconnected', true);
-
-            expect(mockElements.reconnectBtn.style.display).toBe('inline-block');
+        it('sets correct class for connection dot in failed state', () => {
+            window.ChatView.updateConnectionStatus(mockContainer, 'failed');
+            expect(mockElements.connectionDot.className).toBe('connection-dot failed');
         });
 
-        it('handles failed state', () => {
-            window.ChatView.updateConnectionStatus(mockContainer, 'failed', true);
+        it('sets default class for connection dot for unknown state (shows connecting appearance)', () => {
+            window.ChatView.updateConnectionStatus(mockContainer, 'unknown');
+            expect(mockElements.connectionDot.className).toBe('connection-dot');
+        });
+        
+        it('does not throw if connectionDot is not found', () => {
+            mockContainer.querySelector.mockImplementation((selector) => {
+                 if (selector === '.connection-dot') return null;
+                 return mockElements.refreshBtn;
+            });
+            expect(() => window.ChatView.updateConnectionStatus(mockContainer, 'connected')).not.toThrow();
+        });
 
-            expect(mockElements.statusElement.style.display).toBe('flex');
-            expect(mockElements.indicator.className).toBe('status-indicator failed');
-            expect(mockElements.text.textContent).toBe('Connection failed');
-            expect(mockElements.reconnectBtn.style.display).toBe('inline-block');
+        it('shows refresh button when connection failed', () => {
+            window.ChatView.updateConnectionStatus(mockContainer, 'failed');
+            expect(mockElements.refreshBtn.style.display).toBe('flex');
+        });
+
+        it('shows refresh button when connection disconnected', () => {
+            window.ChatView.updateConnectionStatus(mockContainer, 'disconnected');
+            expect(mockElements.refreshBtn.style.display).toBe('flex');
+        });
+
+        it('hides refresh button when connection connected', () => {
+            window.ChatView.updateConnectionStatus(mockContainer, 'connected');
+            expect(mockElements.refreshBtn.style.display).toBe('none');
+        });
+
+        it('hides refresh button when connection connecting', () => {
+            window.ChatView.updateConnectionStatus(mockContainer, 'connecting');
+            expect(mockElements.refreshBtn.style.display).toBe('none');
+        });
+
+        it('hides refresh button when connection reconnecting', () => {
+            window.ChatView.updateConnectionStatus(mockContainer, 'reconnecting');
+            expect(mockElements.refreshBtn.style.display).toBe('none');
+        });
+
+        it('hides refresh button for unknown connection state', () => {
+            window.ChatView.updateConnectionStatus(mockContainer, 'unknown');
+            expect(mockElements.refreshBtn.style.display).toBe('none');
+        });
+
+        it('does not throw if refresh button is not found', () => {
+            mockContainer.querySelector.mockImplementation((selector) => {
+                if (selector === '.refresh-btn') return null;
+                if (selector === '.connection-dot') return mockElements.connectionDot;
+                return null;
+            });
+            expect(() => window.ChatView.updateConnectionStatus(mockContainer, 'failed')).not.toThrow();
         });
     });
 

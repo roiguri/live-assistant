@@ -137,6 +137,53 @@ p {
   font-weight: 500;
   color: #666;
   user-select: none;
+  flex-grow: 1; /* Allows it to take available space */
+  margin-left: 0; /* Ensure no extra left margin if refresh is before it */
+}
+
+.connection-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex-shrink: 0;
+  background-color: #ffc107; /* Default to connecting state (yellow) */
+  animation: pulse 1.5s ease-in-out infinite alternate; /* Default to connecting animation */
+}
+
+.connection-dot.connected {
+  background-color: #28a745; /* Green */
+}
+.connection-dot.connecting {
+  background-color: #ffc107; /* Yellow */
+  animation: pulse 1.5s ease-in-out infinite alternate;
+}
+.connection-dot.failed {
+  background-color: #dc3545; /* Red */
+  animation: flash 1s ease-in-out infinite alternate;
+}
+
+.refresh-btn {
+  background: none;
+  color: #666;
+  border: none;
+  cursor: pointer;
+  font-size: 16px; /* Adjust as needed */
+  font-weight: normal; /* Adjust as needed */
+  transition: all 0.2s;
+  width: 24px;
+  height: 24px;
+  display: none; /* Hidden by default, shown only when connection fails */
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  margin-left: 5px; /* Add some space between title and refresh */
+}
+
+.refresh-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #333;
 }
 
 .minimize-btn {
@@ -346,69 +393,6 @@ p {
   letter-spacing: -1px;
 }
 
-.connection-status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
-  font-size: 12px;
-  color: #6c757d;
-  border-radius: 8px 8px 0 0;
-}
-
-.status-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 8px;
-  flex-shrink: 0;
-}
-
-.status-indicator.connecting {
-  background: #ffc107;
-  animation: pulse 1.5s ease-in-out infinite alternate;
-}
-
-.status-indicator.connected {
-  background: #28a745;
-}
-
-.status-indicator.disconnected {
-  background: #dc3545;
-}
-
-.status-indicator.failed {
-  background: #dc3545;
-  animation: flash 1s ease-in-out infinite alternate;
-}
-
-.status-text {
-  flex: 1;
-  font-weight: 500;
-}
-
-.reconnect-btn {
-  background: #007AFF;
-  color: white;
-  border: none;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.reconnect-btn:hover {
-  background: #0056b3;
-}
-
-.reconnect-btn:disabled {
-  background: #6c757d;
-  cursor: not-allowed;
-}
-
 @keyframes pulse {
   from { opacity: 1; }
   to { opacity: 0.5; }
@@ -417,14 +401,6 @@ p {
 @keyframes flash {
   from { opacity: 1; }
   to { opacity: 0.3; }
-}
-
-#assistant-chat .connection-status + .chat-main .title-panel {
-  border-radius: 0;
-}
-
-#assistant-chat .connection-status + .chat-main .chat-input-area {
-  border-radius: 0 0 8px 8px;
 }
 
 /* Markdown formatting styles */
