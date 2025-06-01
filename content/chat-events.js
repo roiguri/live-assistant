@@ -181,7 +181,7 @@ window.ChatEvents = (function() {
   
   // Initialize message listener for responses from background script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {    
-    const container = document.getElementById('assistant-chat');
+    const container = getContainerFromShadowDOM();
     if (!container) {
       sendResponse({ success: false, error: 'Chat container not found' });
       return;
@@ -227,6 +227,14 @@ window.ChatEvents = (function() {
         break;
     }
   });
+
+  // Helper function to get container from shadow DOM
+  function getContainerFromShadowDOM() {
+    if (window.assistantShadowRoot) {
+      return window.assistantShadowRoot.getElementById('assistant-chat');
+    }
+    return null;
+  }
 
   function handleConnectionLost(container, canReconnect) {    
     // Update connection status UI

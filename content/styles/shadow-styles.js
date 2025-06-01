@@ -1,4 +1,10 @@
-/* AI Assistant - Compact Progressive Interface */
+// Shadow DOM Styles Module - Encapsulated CSS for Live Assistant
+window.ShadowStyles = (function() {
+    'use strict';
+    
+    function getCSSContent() {
+        return `
+/* AI Assistant - Compact Progressive Interface - Shadow DOM Encapsulated */
 
 #assistant-chat {
   position: fixed;
@@ -14,6 +20,10 @@
   font-size: 14px;
   overflow: hidden;
   transition: all 0.3s ease;
+}
+
+p {
+  margin: 0;
 }
 
 /* State-based sizing */
@@ -33,14 +43,14 @@
 
 #assistant-chat[data-state="full"] .chat-messages {
   padding: 12px;
-  padding-top: 12px; /* Title panel provides spacing */
+  padding-top: 12px;
   direction: ltr;
   text-align: left;
 }
 
 #assistant-chat[data-state="recent"] .chat-recent {
   padding: 8px 12px 6px;
-  padding-top: 8px; /* Title panel provides spacing */
+  padding-top: 8px;
   overflow-y: auto;
   max-height: 350px;
   direction: ltr;
@@ -164,7 +174,7 @@
   overflow-y: auto;
   background: #fafafa;
   max-height: 350px;
-  min-height: 0; /* Important for flex child to shrink */
+  min-height: 0;
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -248,7 +258,7 @@
   background: white;
   border-top: 1px solid #f0f0f0;
   position: relative;
-  flex-shrink: 0; /* Prevent input area from shrinking */
+  flex-shrink: 0;
 }
 
 .chat-input {
@@ -334,26 +344,6 @@
   line-height: 0.8;
   font-weight: bold;
   letter-spacing: -1px;
-}
-
-/* Hover trigger for menu */
-.chat-input-area:hover .chat-menu,
-#assistant-chat[data-state="full"]:hover .chat-menu {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: all;
-}
-
-/* Animations */
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .connection-status {
@@ -487,3 +477,19 @@
   padding: 4px 0 4px 12px;
   color: #666;
 }
+        `;
+    }
+    
+    function injectStyles(shadowRoot) {
+        const styleSheet = document.createElement('style');
+        styleSheet.textContent = getCSSContent();
+        shadowRoot.appendChild(styleSheet);
+    }
+    
+    // Public API
+    return {
+        getCSSContent,
+        injectStyles
+    };
+    
+})();

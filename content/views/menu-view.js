@@ -66,9 +66,20 @@ window.MenuView = (function() {
      }
     
     function setupClickOutside(container) {
+        if (window.assistantShadowRoot) {
+            window.assistantShadowRoot.addEventListener('click', (e) => {
+                // Hide menu if clicking outside (for touch devices)
+                if (!container.contains(e.target)) {
+                    hideMenu(container);
+                }
+            });
+        }
+
+        // Also listen on document for clicks outside the shadow DOM entirely
         document.addEventListener('click', (e) => {
-            // Hide menu if clicking outside (for touch devices)
-            if (!container.contains(e.target)) {
+            // Check if click is outside the shadow host
+            const shadowHost = document.getElementById('ai-assistant-shadow-host');
+            if (shadowHost && !shadowHost.contains(e.target)) {
                 hideMenu(container);
             }
         });
@@ -158,4 +169,4 @@ window.MenuView = (function() {
         updateMenuForDrag
     };
     
-})(); 
+})();
