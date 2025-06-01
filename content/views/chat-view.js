@@ -201,8 +201,11 @@ window.ChatView = (function() {
     
     function setupReconnectButton(container) {
         const reconnectBtn = container.querySelector('.reconnect-btn');
-        
-        reconnectBtn.addEventListener('click', () => {
+
+        reconnectBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
             // Disable button during reconnection attempt
             reconnectBtn.disabled = true;
             reconnectBtn.textContent = 'Connecting...';

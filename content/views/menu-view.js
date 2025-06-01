@@ -128,6 +128,7 @@ window.MenuView = (function() {
         if (shouldShowBelow) {
             // Position menu below the chat
             const menuTop = containerRect.bottom + 10;
+            menu.style.position = 'fixed';
             menu.style.right = Math.max(10, menuRight) + 'px';
             menu.style.top = menuTop + 'px';
             menu.style.bottom = 'auto';
@@ -135,6 +136,8 @@ window.MenuView = (function() {
         } else {
             // Position menu above the chat (default)
             const menuBottom = window.innerHeight - containerRect.top + 10;
+            menu.style.position = 'fixed';
+
             menu.style.right = Math.max(10, menuRight) + 'px';
             menu.style.bottom = menuBottom + 'px';
             menu.style.top = 'auto';
