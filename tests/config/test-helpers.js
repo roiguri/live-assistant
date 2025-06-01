@@ -215,4 +215,12 @@ beforeEach(() => {
   if (global.document.getElementById && global.document.getElementById.mockClear) {
     global.document.getElementById.mockClear();
   }
+
+  // Optionally suppress console output in tests
+  // Set TEST_SUPPRESS_CONSOLE=true to reduce noise
+  if (process.env.TEST_SUPPRESS_CONSOLE === 'true') {
+    if (console.info) jest.spyOn(console, 'info').mockImplementation(() => {});
+    if (console.warn) jest.spyOn(console, 'warn').mockImplementation(() => {});
+    // Keep console.error for actual test failures
+  }
 }); 

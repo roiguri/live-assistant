@@ -319,7 +319,9 @@
     "playwright": "^1.52.0"
   },
   "scripts": {
-    "test": "jest --config=tests/config/jest.config.js"
+    "test": "jest --config=tests/config/jest.config.js",
+    "test:quiet": "TEST_SUPPRESS_CONSOLE=true jest --config=tests/config/jest.config.js --silent",
+    "test:verbose": "jest --config=tests/config/jest.config.js --verbose"
   },
   "repository": {
     "type": "git",
