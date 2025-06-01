@@ -101,9 +101,6 @@ describe('ChatController', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         
-        // Clear createElement mock history
-        mockCreateElement.mockClear();
-        
         // Explicitly reset global state
         global.window = {
             innerHeight: 800,
@@ -140,8 +137,7 @@ describe('ChatController', () => {
             }))
         };
 
-        // Set up document.getElementById mock
-        global.document.getElementById.mockReturnValue(mockContainer);
+        global.setupShadowDOMMock(mockContainer);
         
         // Reset mock defaults
         global.ChatUI.getInputValue.mockReturnValue('');

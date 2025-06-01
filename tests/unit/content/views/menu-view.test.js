@@ -41,6 +41,7 @@ Object.defineProperty(global, 'document', {
         createElement: mockCreateElement,
         addEventListener: jest.fn(),
         removeEventListener: jest.fn(),
+        getElementById: jest.fn(),
         body: {
             appendChild: jest.fn(),
             style: {}
@@ -68,52 +69,23 @@ describe('MenuView', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         
-        // Clear createElement mock history
-        mockCreateElement.mockClear();
-        
-        // Explicitly reset global window state
+        // Reset global state  
         global.window = {
             innerHeight: 800,
             innerWidth: 1200
         };
+
+        // Define default mock behavior
+        global.setTimeout = jest.fn((callback) => {
+            callback();
+        });
         
         // Create mock elements
         mockElements = {
-            inputArea: {
-                addEventListener: jest.fn(),
-                removeEventListener: jest.fn(),
-                contains: jest.fn(),
-                matches: jest.fn()
-            },
-            recentArea: {
-                addEventListener: jest.fn(),
-                removeEventListener: jest.fn(),
-                contains: jest.fn(),
-                matches: jest.fn()
-            },
-            titlePanel: {
-                addEventListener: jest.fn(),
-                removeEventListener: jest.fn(),
-                contains: jest.fn(),
-                matches: jest.fn()
-            },
-            menu: {
-                style: {
-                    right: '',
-                    top: '',
-                    bottom: '',
-                    left: ''
-                },
-                classList: {
-                    add: jest.fn(),
-                    remove: jest.fn(),
-                    contains: jest.fn()
-                },
-                addEventListener: jest.fn(),
-                removeEventListener: jest.fn(),
-                contains: jest.fn(),
-                matches: jest.fn()
-            }
+            inputArea: createMockElement(),
+            recentArea: createMockElement(),
+            titlePanel: createMockElement(),
+            menu: createMockElement()
         };
 
         // Create mock container
@@ -161,6 +133,15 @@ describe('MenuView', () => {
         mockElements.menu.matches.mockReturnValue(false);
         mockElements.inputArea.matches.mockReturnValue(false);
         mockContainer.contains.mockReturnValue(false);
+
+        // Set up shadow DOM mock
+        const { mockShadowHost } = global.setupShadowDOMMock(mockContainer);
+        
+        // Configure shadow host behavior for setupClickOutside tests
+        mockShadowHost.contains.mockImplementation((target) => {
+            // Return false by default unless we're testing click inside
+            return false;
+        });
 
         // Simple createElement mock: returns a fresh mock element by default
         mockCreateElement.mockImplementation(() => createMockElement());
@@ -382,8 +363,12 @@ describe('MenuView', () => {
             const clickHandler = global.document.addEventListener.mock.calls
                 .find(call => call[0] === 'click')[1];
 
-            // Mock clicking outside
+            // Mock clicking outside - the shadow host contains should return false
             const mockEvent = { target: {} };
+            
+            // Mock shadow host behavior - target is outside the shadow host
+            const mockShadowHost = global.document.getElementById('ai-assistant-shadow-host');
+            mockShadowHost.contains.mockReturnValue(false);
             mockContainer.contains.mockReturnValue(false);
 
             // Mock the timeout callback execution for hideMenu
@@ -393,6 +378,8 @@ describe('MenuView', () => {
 
             clickHandler(mockEvent);
 
+            // Verify shadow host contains was called
+            expect(mockShadowHost.contains).toHaveBeenCalledWith(mockEvent.target);
             // Verify menu is hidden
             expect(mockElements.menu.classList.remove).toHaveBeenCalledWith('visible');
         });
@@ -404,14 +391,19 @@ describe('MenuView', () => {
             const clickHandler = global.document.addEventListener.mock.calls
                 .find(call => call[0] === 'click')[1];
 
-            // Mock clicking inside
+            // Mock clicking inside - the shadow host contains should return true
             const mockEvent = { target: {} };
-            mockContainer.contains.mockReturnValue(true);
+            
+            // Mock shadow host behavior - target is inside the shadow host
+            const mockShadowHost = global.document.getElementById('ai-assistant-shadow-host');
+            mockShadowHost.contains.mockReturnValue(true);
 
             clickHandler(mockEvent);
 
-            // Verify menu is not hidden (no timeout set by hideMenu)
-            expect(global.setTimeout).not.toHaveBeenCalled();
+            // Verify shadow host contains was called
+            expect(mockShadowHost.contains).toHaveBeenCalledWith(mockEvent.target);
+            // Verify menu is not hidden (no classList.remove call)
+            expect(mockElements.menu.classList.remove).not.toHaveBeenCalledWith('visible');
         });
     });
 
