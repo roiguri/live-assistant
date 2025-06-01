@@ -208,19 +208,10 @@ window.ChatView = (function() {
             e.stopPropagation();
 
             // Immediately show connecting state for instant visual feedback
-            updateConnectionStatus(container, 'reconnecting');
-
-            // Disable button during reconnection attempt
             refreshBtn.disabled = true;
+            updateConnectionStatus(container, 'reconnecting');
             
-            chrome.runtime.sendMessage({ type: 'MANUAL_RECONNECT' }, (response) => {
-                // Button will be re-enabled after a timeout,
-                // assuming connection status update might take time or not occur if already connected.
-                setTimeout(() => {
-                    refreshBtn.disabled = false;
-                    // Reset button style if changed
-                }, 2000);
-            });
+            chrome.runtime.sendMessage({ type: 'MANUAL_RECONNECT' }, (response) => {});
         });
     }
     
