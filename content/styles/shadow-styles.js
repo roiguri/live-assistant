@@ -168,17 +168,28 @@ p {
   color: #666;
   border: none;
   cursor: pointer;
-  font-size: 16px; /* Adjust as needed */
-  font-weight: normal; /* Adjust as needed */
+  font-size: 16px;
+  font-weight: normal;
   transition: all 0.2s;
   width: 24px;
   height: 24px;
-  display: none; /* Hidden by default, shown only when connection fails */
+  display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   border-radius: 50%;
-  margin-left: 5px; /* Add some space between title and refresh */
+  margin-left: 5px;
+}
+
+.refresh-btn:disabled {
+    color: #ccc;
+    cursor: not-allowed;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .refresh-btn:hover {

@@ -30,12 +30,12 @@ conversationManager.setConnectionManager(connectionManager);
 // Initialize connection when extension starts
 chrome.runtime.onStartup.addListener(() => {
   errorHandler.info('Background', 'Extension startup - initializing connection');
-  connectionManager.initializeConnection();
+  connectionManager.connect();
 });
 
 chrome.runtime.onInstalled.addListener(() => {
   errorHandler.info('Background', 'Extension installed - initializing connection');
-  connectionManager.initializeConnection();
+  connectionManager.connect();
 });
 
 // Handle messages from content script

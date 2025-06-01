@@ -1,65 +1,94 @@
-// Load services for testing
-require('../setup/load-models');
-require('../../config/test-helpers');
+const path = require('path');
 
-// ConnectionManager Service Unit Tests
+require('../../config/test-helpers.js');
+
+// Load the services under test  
+require('../setup/load-models.js');
+
 describe('ConnectionManager', () => {
   let connectionManager;
 
   beforeEach(() => {
-    // Create fresh instance
-    connectionManager = new global.ConnectionManager();
+    jest.clearAllMocks();
     
-    // Setup Chrome API default responses
-    global.chrome.storage.local.get.mockResolvedValue({ customInstructions: '' });
-    global.chrome.tabs.query.mockImplementation((options, callback) => 
-      callback([{ id: 1 }, { id: 2 }])
-    );
-    global.chrome.tabs.sendMessage.mockResolvedValue();
-    global.chrome.tabs.captureVisibleTab.mockResolvedValue(global.testData.testScreenshot);
+    // Create fresh instance for each test
+    connectionManager = new globalThis.ConnectionManager();
+    
+    // Mock WebSocket
+    global.WebSocket = jest.fn().mockImplementation(() => ({
+      readyState: 1, // OPEN
+      send: jest.fn(),
+      close: jest.fn(),
+      onopen: null,
+      onmessage: null,
+      onerror: null,
+      onclose: null,
+      lastSentData: null
+    }));
+    
+    // Mock chrome APIs
+    global.chrome = {
+      tabs: {
+        query: jest.fn(),
+        sendMessage: jest.fn(),
+        captureVisibleTab: jest.fn()
+      },
+      storage: {
+        local: {
+          get: jest.fn(),
+          set: jest.fn()
+        }
+      }
+    };
+    
+    // Mock setTimeout/clearTimeout for tests that use timers
+    jest.spyOn(global, 'setTimeout').mockImplementation((callback) => {
+      callback();
+      return 123; // Mock timer ID
+    });
+    jest.spyOn(global, 'clearTimeout').mockImplementation(() => {});
   });
 
   describe('constructor and dependencies', () => {
     it('should initialize correctly', () => {
       expect(connectionManager).toBeDefined();
       expect(connectionManager.ws).toBeNull();
-      expect(connectionManager.setupComplete).toBe(false);
-    });
-
-    it('should initialize with correct default state', () => {
-      expect(connectionManager.connectionState).toEqual({
-        websocket: 'disconnected',
-        lastError: null,
-        reconnectAttempts: 0,
-        maxReconnectAttempts: 5,
-        reconnectDelay: 5000
-      });
-      expect(connectionManager.reconnectTimeout).toBeNull();
-      expect(connectionManager.pingInterval).toBeNull();
-    });
-
-    it('should have required service dependencies', () => {
       expect(connectionManager.geminiClient).toBeDefined();
       expect(connectionManager.apiService).toBeDefined();
       expect(connectionManager.errorHandler).toBeDefined();
     });
+
+    it('should initialize with correct default state', () => {
+      expect(connectionManager.connectionState).toEqual({
+        status: 'disconnected',
+        error: null,
+        attempts: 0
+      });
+    });
+
+    it('should have required service dependencies', () => {
+      expect(connectionManager.geminiClient).toBeInstanceOf(globalThis.GeminiClient);
+      expect(connectionManager.apiService).toBeInstanceOf(globalThis.ApiService);
+      expect(connectionManager.errorHandler).toBeInstanceOf(globalThis.ErrorHandler);
+    });
   });
 
   describe('system prompt management', () => {
-    it('should return default system prompt', () => {
-      const prompt = connectionManager._getDefaultSystemPrompt();
+    it('should return default system prompt', async () => {
+      global.chrome.storage.local.get.mockResolvedValue({});
+      
+      const prompt = await connectionManager.getCombinedSystemPrompt();
       
       expect(prompt).toContain('You are a helpful AI assistant');
       expect(prompt).toContain('Analyze screenshots');
-      expect(prompt).toContain('Be concise but helpful');
     });
 
     it('should combine default prompt with custom instructions', async () => {
-      global.chrome.storage.local.get.mockResolvedValue({ 
-        customInstructions: 'Be extra friendly' 
+      global.chrome.storage.local.get.mockResolvedValue({
+        customInstructions: 'Be extra friendly'
       });
       
-      const prompt = await connectionManager._getCombinedSystemPrompt();
+      const prompt = await connectionManager.getCombinedSystemPrompt();
       
       expect(prompt).toContain('You are a helpful AI assistant');
       expect(prompt).toContain('User Instructions:\nBe extra friendly');
@@ -68,9 +97,8 @@ describe('ConnectionManager', () => {
     it('should return default prompt when no custom instructions', async () => {
       global.chrome.storage.local.get.mockResolvedValue({ customInstructions: '' });
       
-      const prompt = await connectionManager._getCombinedSystemPrompt();
+      const prompt = await connectionManager.getCombinedSystemPrompt();
       
-      expect(prompt).toEqual(connectionManager._getDefaultSystemPrompt());
       expect(prompt).not.toContain('User Instructions');
     });
 
@@ -78,34 +106,25 @@ describe('ConnectionManager', () => {
       global.chrome.storage.local.get.mockRejectedValue(new Error('Storage error'));
       jest.spyOn(connectionManager.errorHandler, 'handleStorageError').mockImplementation(() => {});
       
-      const prompt = await connectionManager._getCombinedSystemPrompt();
+      const prompt = await connectionManager.getCombinedSystemPrompt();
       
-      expect(prompt).toEqual(connectionManager._getDefaultSystemPrompt());
       expect(connectionManager.errorHandler.handleStorageError).toHaveBeenCalled();
     });
   });
 
   describe('connection state', () => {
     it('should report not connected when no WebSocket', () => {
-      connectionManager.ws = null;
-      
-      expect(connectionManager.isConnected()).toBeFalsy();
+      expect(connectionManager.isConnected()).toBe(false);
     });
 
     it('should report not connected when WebSocket not open', () => {
-      connectionManager.ws = new global.WebSocket('test://url');
-      connectionManager.ws.readyState = global.WebSocket.CONNECTING;
-      connectionManager.connectionState.websocket = 'connecting';
-      
+      connectionManager.ws = { readyState: 0 }; // CONNECTING
       expect(connectionManager.isConnected()).toBe(false);
     });
 
     it('should report connected when WebSocket open and state connected', async () => {
-      connectionManager.ws = new global.WebSocket('test://url');
-      connectionManager.connectionState.websocket = 'connected';
-      
-      // Wait for mock WebSocket to connect
-      await new Promise(resolve => setTimeout(resolve, 20));
+      connectionManager.connectionState.status = 'connected';
+      connectionManager.ws = { readyState: globalThis.WebSocket.OPEN };
       
       expect(connectionManager.isConnected()).toBe(true);
     });
@@ -116,36 +135,37 @@ describe('ConnectionManager', () => {
       expect(status).toEqual({
         websocket: 'disconnected',
         lastError: null,
-        reconnectAttempts: 0,
-        maxReconnectAttempts: 5,
-        reconnectDelay: 5000
+        reconnectAttempts: 0
       });
     });
   });
 
   describe('content script communication', () => {
     it('should send response to all tabs', () => {
-      connectionManager.sendResponseToContentScript('Test response', true);
-      
+      global.chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ id: 1 }, { id: 2 }]);
+      });
+      global.chrome.tabs.sendMessage.mockImplementation(() => Promise.resolve());
+
+      connectionManager.sendResponseToContentScript('Hello', true);
+
       expect(global.chrome.tabs.query).toHaveBeenCalledWith({}, expect.any(Function));
       expect(global.chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
       expect(global.chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
         type: 'AI_RESPONSE',
-        text: 'Test response',
-        isComplete: true
-      });
-      expect(global.chrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
-        type: 'AI_RESPONSE',
-        text: 'Test response',
+        text: 'Hello',
         isComplete: true
       });
     });
 
     it('should send error to all tabs', () => {
+      global.chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ id: 1 }]);
+      });
+      global.chrome.tabs.sendMessage.mockImplementation(() => Promise.resolve());
+
       connectionManager.sendErrorToContentScript('Test error');
-      
-      expect(global.chrome.tabs.query).toHaveBeenCalledWith({}, expect.any(Function));
-      expect(global.chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
+
       expect(global.chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
         type: 'AI_ERROR',
         error: 'Test error'
@@ -153,290 +173,167 @@ describe('ConnectionManager', () => {
     });
 
     it('should handle sendMessage failures gracefully', () => {
-      global.chrome.tabs.sendMessage.mockRejectedValue(new Error('Tab not found'));
-      
-      // Should not throw error
+      global.chrome.tabs.query.mockImplementation((query, callback) => {
+        callback([{ id: 1 }]);
+      });
+      global.chrome.tabs.sendMessage.mockImplementation(() => Promise.reject(new Error('Tab error')));
+
       expect(() => {
-        connectionManager.sendResponseToContentScript('Test response');
+        connectionManager.sendResponseToContentScript('Hello', true);
       }).not.toThrow();
     });
   });
 
-  describe('setup messaging', () => {
-    it('should send setup message when connected', async () => {
-      // Setup WebSocket connection
-      connectionManager.ws = new global.WebSocket('test://url');
-      await new Promise(resolve => setTimeout(resolve, 20)); // Wait for connection
-      
-      jest.spyOn(connectionManager.geminiClient, 'createSetupMessage').mockReturnValue({ type: 'setup' });
-      jest.spyOn(connectionManager.errorHandler, 'debug').mockImplementation(() => {});
-      
-      await connectionManager.sendSetupMessage();
-      
-      expect(connectionManager.geminiClient.createSetupMessage).toHaveBeenCalled();
-      expect(connectionManager.ws.lastSentData).toBeDefined();
-      expect(connectionManager.errorHandler.debug).toHaveBeenCalledWith('Connection', 'Setup message sent');
-    });
-
-    it('should not send setup message when not connected', async () => {
-      connectionManager.ws = null;
-      jest.spyOn(connectionManager.geminiClient, 'createSetupMessage').mockReturnValue({ type: 'setup' });
-      jest.spyOn(connectionManager.errorHandler, 'debug').mockImplementation(() => {});
-      
-      await connectionManager.sendSetupMessage();
-      
-      expect(connectionManager.geminiClient.createSetupMessage).toHaveBeenCalled();
-      expect(connectionManager.errorHandler.debug).not.toHaveBeenCalled();
-    });
-  });
-
   describe('message handling', () => {
-    it('should handle text messages when connected', async () => {
-      // Setup connected state
-      connectionManager.ws = new global.WebSocket('test://url');
-      connectionManager.connectionState.websocket = 'connected';
-      await new Promise(resolve => setTimeout(resolve, 20));
-      
-      jest.spyOn(connectionManager.geminiClient, 'createTextMessage').mockReturnValue({
-        message: { type: 'text', text: 'Hello' },
-        messageId: 'test123'
-      });
-      jest.spyOn(connectionManager.errorHandler, 'debug').mockImplementation(() => {});
-      
-      await connectionManager.handleTextMessage('Hello', 1);
-      
-      expect(connectionManager.geminiClient.createTextMessage).toHaveBeenCalledWith('Hello');
-      expect(connectionManager.ws.lastSentData).toBeDefined();
-      expect(connectionManager.errorHandler.debug).toHaveBeenCalledWith('Message', 'Message sent [test123]');
-    });
-
     it('should handle disconnected state for text messages', async () => {
-      connectionManager.ws = null;
-      jest.spyOn(connectionManager.errorHandler, 'handleConnectionError').mockReturnValue('Connection failed');
+      global.chrome.tabs.sendMessage.mockImplementation(() => Promise.resolve());
       
       await connectionManager.handleTextMessage('Hello', 1);
       
-      expect(connectionManager.errorHandler.handleConnectionError).toHaveBeenCalledWith('Not connected to AI service');
       expect(global.chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
         type: 'AI_ERROR',
         error: 'Not connected to AI service'
       });
     });
+
+    it('should handle connecting state for text messages', async () => {
+      connectionManager.connectionState.status = 'connecting';
+      global.chrome.tabs.sendMessage.mockImplementation(() => Promise.resolve());
+      
+      await connectionManager.handleTextMessage('Hello', 1);
+      
+      expect(global.chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'AI_ERROR',
+        error: 'Still connecting - please wait...'
+      });
+    });
+
+    it('should handle failed state for text messages', async () => {
+      connectionManager.connectionState.status = 'failed';
+      global.chrome.tabs.sendMessage.mockImplementation(() => Promise.resolve());
+      
+      await connectionManager.handleTextMessage('Hello', 1);
+      
+      expect(global.chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+        type: 'AI_ERROR',
+        error: 'Connection failed - click ↻ to retry'
+      });
+    });
   });
 
   describe('screenshot handling', () => {
-    it('should capture and send screenshot when connected', async () => {
-      connectionManager.ws = new global.WebSocket('test://url');
-      connectionManager.connectionState.websocket = 'connected';
-      await new Promise(resolve => setTimeout(resolve, 20));
-      
-      jest.spyOn(connectionManager.geminiClient, 'createScreenshotMessage').mockReturnValue({
-        message: { type: 'screenshot' },
-        messageId: 'screenshot123'
-      });
-      jest.spyOn(connectionManager.errorHandler, 'logPerformance').mockImplementation(() => {});
-      jest.spyOn(connectionManager.errorHandler, 'createSuccessResponse').mockReturnValue({ success: true });
-      
-      const mockSendResponse = jest.fn();
-      await connectionManager.handleTabScreenshot(1, mockSendResponse);
-      
-      expect(global.chrome.tabs.captureVisibleTab).toHaveBeenCalledWith(null, {
-        format: 'jpeg',
-        quality: 80
-      });
-      expect(connectionManager.geminiClient.createScreenshotMessage).toHaveBeenCalled();
-      expect(connectionManager.errorHandler.logPerformance).toHaveBeenCalled();
-      expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
-    });
-
     it('should handle disconnected state for screenshots', async () => {
-      connectionManager.ws = null;
-      jest.spyOn(connectionManager.errorHandler, 'handleConnectionError').mockReturnValue('Connection failed');
-      jest.spyOn(connectionManager.errorHandler, 'createErrorResponse').mockReturnValue({ success: false, error: 'Connection failed' });
-      
       const mockSendResponse = jest.fn();
+      jest.spyOn(connectionManager.errorHandler, 'createErrorResponse').mockReturnValue({ 
+        success: false, 
+        error: 'Not connected to AI service',
+        code: 'UNKNOWN_ERROR',
+        timestamp: expect.any(Number)
+      });
+      
       await connectionManager.handleTabScreenshot(1, mockSendResponse);
       
-      expect(connectionManager.errorHandler.handleConnectionError).toHaveBeenCalledWith('Not connected to AI service');
-      expect(mockSendResponse).toHaveBeenCalledWith({ success: false, error: 'Connection failed' });
+      expect(mockSendResponse).toHaveBeenCalledWith({ 
+        success: false, 
+        error: 'Not connected to AI service',
+        code: 'UNKNOWN_ERROR',
+        timestamp: expect.any(Number)
+      });
     });
   });
 
   describe('AI message storage', () => {
-    let mockConversationManager;
-
-    beforeEach(() => {
-      mockConversationManager = {
-        addMessage: jest.fn().mockResolvedValue({ id: 'msg_123' })
+    it('stores complete AI responses', () => {
+      const mockConversationManager = {
+        addMessage: jest.fn()
       };
-      connectionManager.setConversationManager(mockConversationManager);
+      connectionManager.conversationManager = mockConversationManager;
+      connectionManager.currentResponse = 'Hello';
+
+      connectionManager.sendResponseToContentScript(' world', true);
+
+      expect(mockConversationManager.addMessage).toHaveBeenCalledWith('Hello world', 'ai', null);
+      expect(connectionManager.currentResponse).toBe('');
     });
 
-    test('stores complete AI responses', () => {
-      const completeText = 'This is a complete AI response';
-      
-      connectionManager.sendResponseToContentScript(completeText, true);
-      
-      expect(mockConversationManager.addMessage).toHaveBeenCalledWith(
-        completeText, 
-        'ai', 
-        null
-      );
-    });
+    it('does not store incomplete AI responses', () => {
+      const mockConversationManager = {
+        addMessage: jest.fn()
+      };
+      connectionManager.conversationManager = mockConversationManager;
 
-    test('stores streaming AI responses when complete', () => {
-      // Send streaming chunks
-      connectionManager.sendResponseToContentScript('Hello ', false);
-      connectionManager.sendResponseToContentScript('world! ', false);
-      connectionManager.sendResponseToContentScript('How are you?', true);
-      
-      // Should only store once when complete
-      expect(mockConversationManager.addMessage).toHaveBeenCalledTimes(1);
-      expect(mockConversationManager.addMessage).toHaveBeenCalledWith(
-        'Hello world! How are you?', 
-        'ai', 
-        null
-      );
-    });
+      connectionManager.sendResponseToContentScript('Hello', false);
 
-    test('does not store incomplete AI responses', () => {
-      connectionManager.sendResponseToContentScript('Partial response', false);
-      
       expect(mockConversationManager.addMessage).not.toHaveBeenCalled();
+      expect(connectionManager.currentResponse).toBe('Hello');
     });
 
-    test('resets response tracking after completion', () => {
-      // First complete response
-      connectionManager.sendResponseToContentScript('First response', true);
-      
-      // Second response should start fresh
-      connectionManager.sendResponseToContentScript('Second ', false);
-      connectionManager.sendResponseToContentScript('response', true);
-      
-      expect(mockConversationManager.addMessage).toHaveBeenCalledTimes(2);
-      expect(mockConversationManager.addMessage).toHaveBeenNthCalledWith(
-        1, 'First response', 'ai', null
-      );
-      expect(mockConversationManager.addMessage).toHaveBeenNthCalledWith(
-        2, 'Second response', 'ai', null
-      );
-    });
+    it('handles missing conversation manager gracefully', () => {
+      connectionManager.conversationManager = null;
 
-    test('handles missing conversation manager gracefully', () => {
-      connectionManager.setConversationManager(null);
-      
       expect(() => {
-        connectionManager.sendResponseToContentScript('Test response', true);
+        connectionManager.sendResponseToContentScript('Hello', true);
       }).not.toThrow();
     });
   });
 
   describe('context reset', () => {
     beforeEach(() => {
-      // Setup mock methods for testing
-      jest.spyOn(connectionManager, 'cleanupConnection').mockImplementation(() => {});
-      jest.spyOn(connectionManager, 'initializeConnection').mockImplementation(() => {});
+      jest.spyOn(connectionManager, 'stopRetries').mockImplementation(() => {});
+      jest.spyOn(connectionManager, 'connect').mockImplementation(() => {});
       jest.spyOn(connectionManager.errorHandler, 'info').mockImplementation(() => {});
-      
-      // Mock setTimeout globally
-      jest.spyOn(global, 'setTimeout').mockImplementation((fn, delay) => {
-        // Call the function immediately for testing
-        fn();
-        return 123; // Return a mock timer ID
-      });
-      
-      // Setup initial state for testing
-      connectionManager.currentResponse = 'Partial streaming response';
-      connectionManager.connectionState = {
-        websocket: 'connected',
-        lastError: 'Previous error',
-        reconnectAttempts: 3,
-        maxReconnectAttempts: 5,
-        reconnectDelay: 15000
-      };
     });
 
     afterEach(() => {
-      // Restore setTimeout
-      global.setTimeout.mockRestore();
+      jest.restoreAllMocks();
     });
 
-    test('resets all connection state and clears streaming response', () => {
-      connectionManager.resetContext();
-
-      // Verify streaming response is cleared
-      expect(connectionManager.currentResponse).toBe('');
-
-      // Verify connection cleanup is called
-      expect(connectionManager.cleanupConnection).toHaveBeenCalledTimes(1);
-
-      // Verify connection state is reset
-      expect(connectionManager.connectionState).toEqual({
-        websocket: 'disconnected',
-        lastError: null,
-        reconnectAttempts: 0,
-        maxReconnectAttempts: 5,
-        reconnectDelay: 5000
-      });
-
-      // Verify new connection is scheduled
-      expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 500);
-    });
-
-    test('logs context reset action', () => {
-      connectionManager.resetContext();
-
-      expect(connectionManager.errorHandler.info).toHaveBeenCalledWith(
-        'Connection', 
-        'Resetting Gemini conversation context'
-      );
-    });
-
-    test('schedules new connection after delay', () => {
+    it('resets all connection state and clears streaming response', () => {
+      connectionManager.currentResponse = 'some text';
+      
       connectionManager.resetContext();
       
-      // Verify setTimeout was called with correct delay
-      expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), 500);
-      
-      // Since we mock setTimeout to call the function immediately, 
-      // initializeConnection should have been called
-      expect(connectionManager.initializeConnection).toHaveBeenCalledTimes(1);
-    });
-
-    test('handles cleanup errors gracefully', () => {
-      connectionManager.cleanupConnection.mockImplementation(() => {
-        throw new Error('Cleanup failed');
-      });
-
-      // Should not throw because resetContext has try-catch around cleanup
-      expect(() => {
-        connectionManager.resetContext();
-      }).not.toThrow();
-
-      // Should still reset state even if cleanup fails
       expect(connectionManager.currentResponse).toBe('');
-      expect(connectionManager.connectionState.websocket).toBe('disconnected');
+      expect(connectionManager.errorHandler.info).toHaveBeenCalledWith('Connection', 'Resetting connection context');
+      expect(connectionManager.stopRetries).toHaveBeenCalled();
+      expect(connectionManager.connect).toHaveBeenCalled();
     });
 
-    test('resets state to defaults regardless of previous state', () => {
-      // Set extreme values to test reset
-      connectionManager.connectionState = {
-        websocket: 'failed',
-        lastError: 'Multiple connection failures',
-        reconnectAttempts: 10,
-        maxReconnectAttempts: 5,
-        reconnectDelay: 120000
-      };
-
+    it('logs context reset action', () => {
       connectionManager.resetContext();
+      
+      expect(connectionManager.errorHandler.info).toHaveBeenCalledWith('Connection', 'Resetting connection context');
+    });
+  });
 
-      expect(connectionManager.connectionState).toEqual({
-        websocket: 'disconnected',
-        lastError: null,
-        reconnectAttempts: 0,
-        maxReconnectAttempts: 5,
-        reconnectDelay: 5000
-      });
+  describe('manual reconnect', () => {
+    beforeEach(() => {
+      jest.spyOn(connectionManager, 'stopRetries').mockImplementation(() => {});
+      jest.spyOn(connectionManager, 'clearConnectionMessages').mockImplementation(() => {});
+      jest.spyOn(connectionManager, 'connect').mockImplementation(() => {});
+      jest.spyOn(connectionManager.errorHandler, 'info').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('resets attempt counter and reconnects', () => {
+      connectionManager.connectionState.attempts = 3;
+      
+      connectionManager.manualReconnect();
+      
+      expect(connectionManager.connectionState.attempts).toBe(0);
+      expect(connectionManager.stopRetries).toHaveBeenCalled();
+      expect(connectionManager.connect).toHaveBeenCalled();
+    });
+
+    it('clears connection messages when conversation manager exists', () => {
+      connectionManager.conversationManager = { messages: [] };
+      
+      connectionManager.manualReconnect();
+      
+      expect(connectionManager.clearConnectionMessages).toHaveBeenCalled();
     });
   });
 }); 

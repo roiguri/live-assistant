@@ -376,19 +376,22 @@ describe('ChatView', () => {
             expect(mockElements.refreshBtn.style.display).toBe('none');
         });
 
-        it('hides refresh button when connection connecting', () => {
+        it('shows and disables refresh button when connection connecting', () => {
             window.ChatView.updateConnectionStatus(mockContainer, 'connecting');
-            expect(mockElements.refreshBtn.style.display).toBe('none');
+            expect(mockElements.refreshBtn.style.display).toBe('flex');
+            expect(mockElements.refreshBtn.disabled).toBe(true);
         });
 
-        it('hides refresh button when connection reconnecting', () => {
+        it('shows and disables refresh button when connection reconnecting', () => {
             window.ChatView.updateConnectionStatus(mockContainer, 'reconnecting');
-            expect(mockElements.refreshBtn.style.display).toBe('none');
+            expect(mockElements.refreshBtn.style.display).toBe('flex');
+            expect(mockElements.refreshBtn.disabled).toBe(true);
         });
 
-        it('hides refresh button for unknown connection state', () => {
+        it('shows and disables refresh button for unknown connection state', () => {
             window.ChatView.updateConnectionStatus(mockContainer, 'unknown');
-            expect(mockElements.refreshBtn.style.display).toBe('none');
+            expect(mockElements.refreshBtn.style.display).toBe('flex');
+            expect(mockElements.refreshBtn.disabled).toBe(true);
         });
 
         it('does not throw if refresh button is not found', () => {
@@ -398,6 +401,79 @@ describe('ChatView', () => {
                 return null;
             });
             expect(() => window.ChatView.updateConnectionStatus(mockContainer, 'failed')).not.toThrow();
+        });
+
+        it('immediately shows connecting state when refresh button is clicked', () => {
+            // First render the container to set up event listeners
+            window.ChatView.renderContainer();
+            
+            // Simulate refresh button being visible (failed state)
+            window.ChatView.updateConnectionStatus(mockContainer, 'failed');
+            
+            // Get the click handler that was registered during renderContainer
+            const addEventListenerCalls = mockElements.refreshBtn.addEventListener.mock.calls;
+            expect(addEventListenerCalls.length).toBeGreaterThan(0);
+            const clickHandler = addEventListenerCalls[0][1];
+            
+            // Create mock event
+            const mockEvent = {
+                preventDefault: jest.fn(),
+                stopPropagation: jest.fn()
+            };
+            
+            // Call the click handler
+            clickHandler(mockEvent);
+            
+            // Verify immediate feedback
+            expect(mockEvent.preventDefault).toHaveBeenCalled();
+            expect(mockEvent.stopPropagation).toHaveBeenCalled();
+            expect(mockElements.connectionDot.className).toBe('connection-dot connecting');
+            expect(mockElements.refreshBtn.disabled).toBe(true);
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+                { type: 'MANUAL_RECONNECT' },
+                expect.any(Function)
+            );
+        });
+
+        it('re-enables refresh button after timeout when clicked', (done) => {
+            // Set up timer mocks
+            jest.useFakeTimers();
+            
+            // First render the container to set up event listeners
+            window.ChatView.renderContainer();
+            
+            // Simulate refresh button being visible (failed state)
+            window.ChatView.updateConnectionStatus(mockContainer, 'failed');
+            
+            // Get the click handler
+            const clickHandler = mockElements.refreshBtn.addEventListener.mock.calls[0][1];
+            
+            // Mock the chrome.runtime.sendMessage response
+            global.chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+                if (callback) callback({ success: true });
+            });
+            
+            // Create mock event and click
+            const mockEvent = {
+                preventDefault: jest.fn(),
+                stopPropagation: jest.fn()
+            };
+            
+            // Click the button
+            clickHandler(mockEvent);
+            
+            // Verify button is disabled initially
+            expect(mockElements.refreshBtn.disabled).toBe(true);
+            
+            // Fast-forward the timeout
+            jest.advanceTimersByTime(2000);
+            
+            // Verify button is re-enabled
+            expect(mockElements.refreshBtn.disabled).toBe(false);
+            
+            // Clean up
+            jest.useRealTimers();
+            done();
         });
     });
 

@@ -168,25 +168,33 @@ window.ChatView = (function() {
             case 'connecting':
             case 'reconnecting':
                 connectionDot.className = 'connection-dot connecting';
+                if (refreshBtn) {
+                    refreshBtn.style.display = 'flex';
+                    refreshBtn.disabled = true; // Disable during connecting
+                }
                 break;
             case 'connected':
                 connectionDot.className = 'connection-dot connected';
-                break;
-            case 'disconnected':
-                connectionDot.className = 'connection-dot failed'; // Using 'failed' style for disconnected
+                if (refreshBtn) {
+                    refreshBtn.style.display = 'none'; // Hide when connected
+                    refreshBtn.disabled = false;
+                }
                 break;
             case 'failed':
+            case 'disconnected':
                 connectionDot.className = 'connection-dot failed';
+                if (refreshBtn) {
+                    refreshBtn.style.display = 'flex'; // Show when failed
+                    refreshBtn.disabled = false; // Enable for retry
+                }
                 break;
             default:
                 connectionDot.className = 'connection-dot'; // Default connecting state (yellow with pulse)
+                if (refreshBtn) {
+                    refreshBtn.style.display = 'flex';
+                    refreshBtn.disabled = true;
+                }
                 break;
-        }
-
-        // Show/hide refresh button based on connection status
-        if (refreshBtn) {
-            const shouldShowRefresh = status === 'failed' || status === 'disconnected';
-            refreshBtn.style.display = shouldShowRefresh ? 'flex' : 'none';
         }
     }
     
@@ -199,10 +207,11 @@ window.ChatView = (function() {
             e.preventDefault();
             e.stopPropagation();
 
+            // Immediately show connecting state for instant visual feedback
+            updateConnectionStatus(container, 'reconnecting');
+
             // Disable button during reconnection attempt
             refreshBtn.disabled = true;
-            // Optionally, change icon or add a temporary "connecting" state visual to the button
-            // For now, the connection dot changing to 'connecting' is the primary feedback.
             
             chrome.runtime.sendMessage({ type: 'MANUAL_RECONNECT' }, (response) => {
                 // Button will be re-enabled after a timeout,
