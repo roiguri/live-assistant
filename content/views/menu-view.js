@@ -66,9 +66,20 @@ window.MenuView = (function() {
      }
     
     function setupClickOutside(container) {
+        if (window.assistantShadowRoot) {
+            window.assistantShadowRoot.addEventListener('click', (e) => {
+                // Hide menu if clicking outside (for touch devices)
+                if (!container.contains(e.target)) {
+                    hideMenu(container);
+                }
+            });
+        }
+
+        // Also listen on document for clicks outside the shadow DOM entirely
         document.addEventListener('click', (e) => {
-            // Hide menu if clicking outside (for touch devices)
-            if (!container.contains(e.target)) {
+            // Check if click is outside the shadow host
+            const shadowHost = document.getElementById('ai-assistant-shadow-host');
+            if (shadowHost && !shadowHost.contains(e.target)) {
                 hideMenu(container);
             }
         });
@@ -117,6 +128,7 @@ window.MenuView = (function() {
         if (shouldShowBelow) {
             // Position menu below the chat
             const menuTop = containerRect.bottom + 10;
+            menu.style.position = 'fixed';
             menu.style.right = Math.max(10, menuRight) + 'px';
             menu.style.top = menuTop + 'px';
             menu.style.bottom = 'auto';
@@ -124,6 +136,8 @@ window.MenuView = (function() {
         } else {
             // Position menu above the chat (default)
             const menuBottom = window.innerHeight - containerRect.top + 10;
+            menu.style.position = 'fixed';
+
             menu.style.right = Math.max(10, menuRight) + 'px';
             menu.style.bottom = menuBottom + 'px';
             menu.style.top = 'auto';
@@ -158,4 +172,4 @@ window.MenuView = (function() {
         updateMenuForDrag
     };
     
-})(); 
+})();

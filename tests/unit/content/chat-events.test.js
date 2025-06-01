@@ -142,9 +142,6 @@ describe('ChatEvents', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         
-        // Clear createElement mock history
-        mockCreateElement.mockClear();
-        
         // Explicitly reset global state
         global.window = {
             innerHeight: 800,
@@ -213,6 +210,10 @@ describe('ChatEvents', () => {
                     opacity: '',
                     transform: ''
                 }
+            },
+            messagesArea: {
+                innerHTML: '',
+                appendChild: jest.fn()
             }
         };
 
@@ -249,6 +250,7 @@ describe('ChatEvents', () => {
                 case '.chat-send': return mockElements.sendBtn;
                 case '.title-panel .minimize-btn': return mockElements.minimizeBtn;
                 case '.drag-handle': return mockElements.dragHandle;
+                case '.chat-messages': return mockElements.messagesArea;
                 default: return null;
             }
         });
@@ -261,8 +263,8 @@ describe('ChatEvents', () => {
             return [];
         });
 
-        // Set up document.getElementById mock
-        global.document.getElementById.mockReturnValue(mockContainer);
+        // Set up shadow DOM mock - this is crucial for getContainerFromShadowDOM() to work
+        global.setupShadowDOMMock(mockContainer);
         
         // Simple createElement mock: returns a fresh mock element by default
         mockCreateElement.mockImplementation(() => createMockElement());
@@ -281,11 +283,13 @@ describe('ChatEvents', () => {
                 expect(item.addEventListener).toHaveBeenCalledWith('click', expect.any(Function));
             });
             
-            // Verify input events
-            expect(mockElements.input.addEventListener).toHaveBeenCalledWith('keypress', expect.any(Function));
+            // Verify input events (keydown, keypress, keyup, focus, blur, input)
+            expect(mockElements.input.addEventListener).toHaveBeenCalledWith('keydown', expect.any(Function), true);
+            expect(mockElements.input.addEventListener).toHaveBeenCalledWith('keypress', expect.any(Function), true);
+            expect(mockElements.input.addEventListener).toHaveBeenCalledWith('keyup', expect.any(Function), true);
             expect(mockElements.input.addEventListener).toHaveBeenCalledWith('focus', expect.any(Function));
             expect(mockElements.input.addEventListener).toHaveBeenCalledWith('blur', expect.any(Function));
-            expect(mockElements.input.addEventListener).toHaveBeenCalledWith('input', expect.any(Function));
+            expect(mockElements.input.addEventListener).toHaveBeenCalledWith('input', expect.any(Function), true);
             
             // Verify send button events
             expect(mockElements.sendBtn.addEventListener).toHaveBeenCalledWith('click', expect.any(Function));
@@ -295,10 +299,8 @@ describe('ChatEvents', () => {
             expect(mockElements.dragHandle.addEventListener).toHaveBeenCalledWith('mouseenter', expect.any(Function));
             expect(mockElements.dragHandle.addEventListener).toHaveBeenCalledWith('mouseleave', expect.any(Function));
             
-            // Verify document-level events for drag
-            expect(global.document.addEventListener).toHaveBeenCalledWith('mousemove', expect.any(Function));
-            expect(global.document.addEventListener).toHaveBeenCalledWith('mouseup', expect.any(Function));
-            expect(global.document.addEventListener).toHaveBeenCalledWith('mouseleave', expect.any(Function));
+            // Note: Document-level events for drag (mousemove, mouseup, mouseleave) are added dynamically
+            // when drag starts, not during initial setup
             
             // Verify Chrome message listener was registered at module load time
             expect(chromeMessageListener).not.toBeNull();
@@ -374,17 +376,21 @@ describe('ChatEvents', () => {
             const keypressHandler = mockElements.input.addEventListener.mock.calls
                 .find(call => call[0] === 'keypress')[1];
 
-            // Mock Enter key event
+            // Mock Enter key event with all required methods
             const mockEvent = {
                 key: 'Enter',
                 shiftKey: false,
-                preventDefault: jest.fn()
+                preventDefault: jest.fn(),
+                stopPropagation: jest.fn(),
+                stopImmediatePropagation: jest.fn()
             };
 
             // Trigger keypress
             keypressHandler(mockEvent);
 
-            // Verify message sending
+            // Verify event methods were called
+            expect(mockEvent.stopPropagation).toHaveBeenCalled();
+            expect(mockEvent.stopImmediatePropagation).toHaveBeenCalled();
             expect(mockEvent.preventDefault).toHaveBeenCalled();
             expect(global.ChatController.sendMessage).toHaveBeenCalledWith(mockContainer);
         });
@@ -396,17 +402,21 @@ describe('ChatEvents', () => {
             const keypressHandler = mockElements.input.addEventListener.mock.calls
                 .find(call => call[0] === 'keypress')[1];
 
-            // Mock Shift+Enter event
+            // Mock Shift+Enter event with all required methods
             const mockEvent = {
                 key: 'Enter',
                 shiftKey: true,
-                preventDefault: jest.fn()
+                preventDefault: jest.fn(),
+                stopPropagation: jest.fn(),
+                stopImmediatePropagation: jest.fn()
             };
 
             // Trigger keypress
             keypressHandler(mockEvent);
 
-            // Verify message is not sent
+            // Verify event methods were called but message not sent
+            expect(mockEvent.stopPropagation).toHaveBeenCalled();
+            expect(mockEvent.stopImmediatePropagation).toHaveBeenCalled();
             expect(mockEvent.preventDefault).not.toHaveBeenCalled();
             expect(global.ChatController.sendMessage).not.toHaveBeenCalled();
         });
@@ -420,10 +430,16 @@ describe('ChatEvents', () => {
             const focusHandler = mockElements.input.addEventListener.mock.calls
                 .find(call => call[0] === 'focus')[1];
 
-            // Trigger focus
-            focusHandler();
+            // Mock focus event with required methods
+            const mockEvent = {
+                stopPropagation: jest.fn()
+            };
 
-            // Verify focus styles
+            // Trigger focus
+            focusHandler(mockEvent);
+
+            // Verify event methods and focus styles
+            expect(mockEvent.stopPropagation).toHaveBeenCalled();
             expect(mockElements.input.style.borderColor).toBe('#007AFF');
             expect(mockElements.input.style.background).toBe('white');
         });
@@ -435,10 +451,16 @@ describe('ChatEvents', () => {
             const blurHandler = mockElements.input.addEventListener.mock.calls
                 .find(call => call[0] === 'blur')[1];
 
-            // Trigger blur
-            blurHandler();
+            // Mock blur event with required methods
+            const mockEvent = {
+                stopPropagation: jest.fn()
+            };
 
-            // Verify blur styles
+            // Trigger blur
+            blurHandler(mockEvent);
+
+            // Verify event methods and blur styles
+            expect(mockEvent.stopPropagation).toHaveBeenCalled();
             expect(mockElements.input.style.borderColor).toBe('#e0e0e0');
             expect(mockElements.input.style.background).toBe('#fafafa');
         });
@@ -499,19 +521,21 @@ describe('ChatEvents', () => {
         it('constrains to viewport bounds', () => {
             window.ChatEvents.setupEventListeners(mockContainer);
 
-            // Get handlers
+            // Get the mousedown handler
             const mousedownHandler = mockElements.dragHandle.addEventListener.mock.calls
                 .find(call => call[0] === 'mousedown')[1];
-            const mousemoveHandler = global.document.addEventListener.mock.calls
-                .find(call => call[0] === 'mousemove')[1];
 
-            // Start drag
+            // Start drag first - this adds the document event listeners
             mousedownHandler({
                 preventDefault: jest.fn(),
                 stopPropagation: jest.fn(),
                 clientX: 150,
                 clientY: 75
             });
+
+            // Now get the mousemove handler that was added to document
+            const mousemoveHandler = global.document.addEventListener.mock.calls
+                .find(call => call[0] === 'mousemove')[1];
 
             // Try to move beyond right edge
             mousemoveHandler({
@@ -599,7 +623,8 @@ describe('ChatEvents', () => {
         });
 
         it('handles missing container gracefully', () => {
-            global.document.getElementById.mockReturnValue(null);
+            // Mock shadow DOM to return null (no container found)
+            global.window.assistantShadowRoot = null;
             window.ChatEvents.setupEventListeners(mockContainer);
 
             const mockSendResponse = jest.fn();
@@ -722,9 +747,15 @@ describe('ChatEvents', () => {
             const inputHandler = mockElements.input.addEventListener.mock.calls
                 .find(call => call[0] === 'input')[1];
 
+            // Create mock event object with required methods
+            const mockEvent = {
+                stopPropagation: jest.fn(),
+                stopImmediatePropagation: jest.fn()
+            };
+
             // Test with text
             mockElements.input.value = 'test message';
-            inputHandler();
+            inputHandler(mockEvent);
 
             // Verify enabled state
             expect(mockElements.sendBtn.disabled).toBe(false);
@@ -732,7 +763,7 @@ describe('ChatEvents', () => {
 
             // Test with empty text
             mockElements.input.value = '';
-            inputHandler();
+            inputHandler(mockEvent);
 
             // Verify disabled state
             expect(mockElements.sendBtn.disabled).toBe(true);

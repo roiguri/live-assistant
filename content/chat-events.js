@@ -29,6 +29,34 @@ window.ChatEvents = (function() {
   function setupMessageEvents(container) {
     const input = container.querySelector('.chat-input');
     const sendBtn = container.querySelector('.chat-send');
+
+    // Prevent event bubbling and capture for input events
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    }, true); // Use capture phase
+    
+    input.addEventListener('keypress', (e) => {
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        ChatController.sendMessage(container);
+        updateSendButtonState(container);
+      }
+    }, true); // Use capture phase
+    
+    input.addEventListener('keyup', (e) => {
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    }, true); // Use capture phase
+    
+    input.addEventListener('input', (e) => {
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      updateSendButtonState(container);
+    }, true); // Use capture phase
     
     // Send button click
     sendBtn.addEventListener('click', () => {
@@ -36,29 +64,17 @@ window.ChatEvents = (function() {
       updateSendButtonState(container);
     });
     
-    // Enter key to send
-    input.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        ChatController.sendMessage(container);
-        updateSendButtonState(container);
-      }
-    });
-    
     // Input focus effects
-    input.addEventListener('focus', () => {
+    input.addEventListener('focus', (e) => {
+      e.stopPropagation();
       input.style.borderColor = '#007AFF';
       input.style.background = 'white';
     });
     
-    input.addEventListener('blur', () => {
+    input.addEventListener('blur', (e) => {
+      e.stopPropagation();
       input.style.borderColor = '#e0e0e0';
       input.style.background = '#fafafa';
-    });
-    
-    // Auto-resize input area based on content
-    input.addEventListener('input', () => {
-      updateSendButtonState(container);
     });
     
     // Initial button state
@@ -88,6 +104,15 @@ window.ChatEvents = (function() {
     const dragHandle = container.querySelector('.drag-handle');
     let isDragging = false;
     let dragOffset = { x: 0, y: 0 };
+
+    
+      
+    // Add global mouse event listeners when drag starts
+    function addDragListeners() {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', endDrag);
+      document.addEventListener('mouseleave', endDrag);
+    }
     
     // Start drag on drag handle mousedown
     dragHandle.addEventListener('mousedown', (e) => {
@@ -101,18 +126,19 @@ window.ChatEvents = (function() {
       
       // Visual feedback
       document.body.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
       dragHandle.style.opacity = '0.8';
       dragHandle.style.transform = 'scale(1.1)';
       
       // Hide menu during drag
       MenuView.updateMenuForDrag(container, true);
-      
-      // Prevent text selection during drag
-      document.body.style.userSelect = 'none';
+
+      // Add global event listeners
+      addDragListeners();
     });
     
     // Handle drag movement
-    document.addEventListener('mousemove', (e) => {
+    function handleMouseMove(e) {
       if (!isDragging) return;
       
       e.preventDefault();
@@ -133,7 +159,7 @@ window.ChatEvents = (function() {
       container.style.top = newY + 'px';
       container.style.right = 'auto';
       container.style.bottom = 'auto';
-    });
+    };
     
     // End drag on mouseup OR mouseleave
     function endDrag() {
@@ -148,11 +174,13 @@ window.ChatEvents = (function() {
           dragHandle.style.opacity = '';
           dragHandle.style.transform = '';
         }
+
+        // Remove event listeners
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', endDrag);
+        document.removeEventListener('mouseleave', endDrag);
       }
     }
-    
-    document.addEventListener('mouseup', endDrag);
-    document.addEventListener('mouseleave', endDrag);
     
     // Hover effects for drag handle
     dragHandle.addEventListener('mouseenter', () => {
@@ -181,7 +209,7 @@ window.ChatEvents = (function() {
   
   // Initialize message listener for responses from background script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {    
-    const container = document.getElementById('assistant-chat');
+    const container = getContainerFromShadowDOM();
     if (!container) {
       sendResponse({ success: false, error: 'Chat container not found' });
       return;
@@ -227,6 +255,14 @@ window.ChatEvents = (function() {
         break;
     }
   });
+
+  // Helper function to get container from shadow DOM
+  function getContainerFromShadowDOM() {
+    if (window.assistantShadowRoot) {
+      return window.assistantShadowRoot.getElementById('assistant-chat');
+    }
+    return null;
+  }
 
   function handleConnectionLost(container, canReconnect) {    
     // Update connection status UI

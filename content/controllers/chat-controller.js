@@ -34,7 +34,7 @@ window.ChatController = (function() {
     }
     
     function receiveResponse(text, isComplete) {
-      const container = document.getElementById('assistant-chat');
+      const container = getContainerFromShadowDOM();
       if (!container) return;
       
       // Remove typing indicator on first chunk
@@ -82,7 +82,7 @@ window.ChatController = (function() {
       finalizeCurrentResponse();
       
       // Remove typing indicator if present
-      const container = document.getElementById('assistant-chat');
+      const container = getContainerFromShadowDOM();
       if (container) {
         if (ConnectionState.isTyping()) {
           MessageView.removeTypingIndicator(container, ConnectionState.getTypingId());
@@ -153,6 +153,14 @@ window.ChatController = (function() {
       });
     }
     
+    // Helper function to get container from shadow DOM
+    function getContainerFromShadowDOM() {
+      if (window.assistantShadowRoot) {
+        return window.assistantShadowRoot.getElementById('assistant-chat');
+      }
+      return null;
+    }
+    
     // Public API
     return {
       sendMessage,
@@ -162,4 +170,4 @@ window.ChatController = (function() {
       takeScreenshot
     };
     
-  })();
+})();

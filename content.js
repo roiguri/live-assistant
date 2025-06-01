@@ -17,8 +17,18 @@
       
       try {
         // Create and inject the chat interface
+        const shadowHost = document.createElement('div');
+        shadowHost.id = 'ai-assistant-shadow-host';
+        shadowHost.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2147483647;';
+        const shadowRoot = shadowHost.attachShadow({ mode: 'closed' });
+        window.ShadowStyles.injectStyles(shadowRoot);
+
         const chatContainer = window.ChatUI.createChatContainer();
-        document.body.appendChild(chatContainer);
+        chatContainer.style.pointerEvents = 'all';
+        shadowRoot.appendChild(chatContainer);
+
+        document.body.appendChild(shadowHost);
+        window.assistantShadowRoot = shadowRoot;
 
         // Check visibility preference and apply it
         chrome.storage.local.get(['chatVisible'], (result) => {
