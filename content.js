@@ -67,7 +67,16 @@
         
         // Set up all event listeners
         window.ChatEvents.setupEventListeners(chatContainer);
-        
+
+        setTimeout(() => {
+          chrome.runtime.sendMessage({ type: 'GET_CONNECTION_STATUS' }, (response) => {
+              if (response && response.websocket) {
+                  if (window.ChatView && window.ChatView.updateConnectionStatus) {
+                      window.ChatView.updateConnectionStatus(chatContainer, response.websocket);
+                  }
+              }
+          });
+        }, 500);
       } catch (error) {
       }
     }
