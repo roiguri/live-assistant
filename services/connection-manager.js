@@ -105,7 +105,7 @@ globalThis.ConnectionManager = class ConnectionManager {
           // Connection timeout
           const connectionTimeout = setTimeout(() => {
               reject(new Error('WebSocket connection timeout'));
-          }, 10000);
+          }, 5000);
           
           this.ws.onopen = () => {
               clearTimeout(connectionTimeout);
@@ -149,7 +149,7 @@ globalThis.ConnectionManager = class ConnectionManager {
           // Setup timeout
           this.setupTimeout = setTimeout(() => {
               reject(new Error('Setup timeout - check API key'));
-          }, 10000);
+          }, 5000);
           
           // Send setup message
           const systemPrompt = await this.getCombinedSystemPrompt();
@@ -260,7 +260,7 @@ globalThis.ConnectionManager = class ConnectionManager {
       }
       
       // Schedule retry
-      const delay = 3000; // 3 second delay between attempts
+      const delay = 1500; // 1.5 second delay between attempts
       this.errorHandler.info('Connection', `Retrying in ${delay}ms (attempt ${this.connectionState.attempts + 1})`);
       
       this.retryTimeout = setTimeout(() => {
