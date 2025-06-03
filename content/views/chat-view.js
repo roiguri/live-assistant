@@ -126,17 +126,27 @@ window.ChatView = (function() {
     
     function updateRecentArea(container) {
         const recentArea = container.querySelector('.chat-recent');
-        const lastMessage = ChatState.getLastMessage();
+        const messages = ChatState.getMessages();
         
-        if (lastMessage && lastMessage.sender === 'ai') {
-            recentArea.innerHTML = `
-                <div class="message message-ai recent-message">
-                    ${marked.parse(lastMessage.text)}
-                </div>
-            `;
+        // Show last message (configurable)
+        const recentMessages = messages.slice(-1);
+        
+        if (recentMessages.length > 0) {
+            recentArea.innerHTML = recentMessages.map(msg => {
+                const messageEl = `<div class="message message-${msg.sender} recent-message">
+                    ${msg.sender === 'ai' ? marked.parse(msg.text) : escapeHtml(msg.text)}
+                </div>`;
+                return messageEl;
+            }).join('');
         } else {
             recentArea.innerHTML = '';
         }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
     
     function updateMenuText(container) {

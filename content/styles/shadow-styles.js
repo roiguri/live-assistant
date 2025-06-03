@@ -257,10 +257,6 @@ p {
   border-bottom: 1px solid #e8e8e8;
 }
 
-.recent-message {
-  margin: 0 !important;
-}
-
 /* Messages */
 .message {
   margin: 6px 0;

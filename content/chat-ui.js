@@ -44,10 +44,10 @@ window.ChatUI = (function() {
     function toggleFullChat(container) {
       if (ChatState.isFullState()) {
         // Collapsing from full - check if we have recent AI messages
-        const lastMessage = ChatState.getLastMessage();
-        const hasRecentAI = lastMessage && lastMessage.sender === 'ai';
+        const messages = ChatState.getMessages();
+        const hasMessages = messages.length > 0;
         
-        const newState = hasRecentAI ? STATES.RECENT : STATES.MINIMAL;
+        const newState = hasMessages ? STATES.RECENT : STATES.MINIMAL;
         setState(container, newState);
       } else {
         // Expanding to full
