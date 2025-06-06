@@ -284,6 +284,11 @@ p {
   border-bottom-left-radius: 4px;
 }
 
+.message-ai.streaming {
+  opacity: 0.7;
+  background: #f8f8f8;
+}
+
 .message-system {
   text-align: center;
   color: #888;

@@ -30,15 +30,28 @@ window.MessageView = (function() {
     }
     
     function startStreamingMessage(container, text) {
-        // Create new AI message for streaming
-        window.ChatUI.addMessage(container, text, 'ai');
-        const responseElement = container.querySelector('.message-ai:last-child');
+        // Create new AI message for streaming - add to DOM directly with streaming class
+        const messagesArea = container.querySelector('.chat-messages');
+        const messageEl = document.createElement('div');
+        messageEl.className = 'message message-ai streaming';
+        messageEl.textContent = text;
+        messagesArea.appendChild(messageEl);
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+        
+        // Update state based on message
+        if (ChatState.isMinimalState()) {
+            ChatUI.setState(container, ChatState.STATES.RECENT);
+        }
+        
+        // Update recent area if visible
+        if (ChatState.isRecentState()) {
+            ChatView.updateRecentArea(container);
+        }
         
         // Set up streaming state
-        ConnectionState.setStreaming(true, responseElement);
-        responseElement.classList.add('streaming');
+        ConnectionState.setStreaming(true, messageEl);
         
-        return responseElement;
+        return messageEl;
     }
     
     function updateStreamingMessage(responseElement, newText) {
