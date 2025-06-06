@@ -28,6 +28,7 @@ describe('ChatUI', () => {
             setState: jest.fn(),
             setMessages: jest.fn(),
             getState: jest.fn(),
+            getMessages: jest.fn(() => []),
             getLastMessage: jest.fn(),
             isMinimalState: jest.fn(),
             isRecentState: jest.fn(),
@@ -137,6 +138,7 @@ describe('ChatUI', () => {
         it('transitions between states correctly', () => {
             window.ChatState.setState.mockReturnValue(true);
             window.ChatState.isFullState.mockReturnValue(true);
+            window.ChatState.getMessages.mockReturnValue([{ sender: 'ai', text: 'Hello' }]);
             window.ChatState.getLastMessage.mockReturnValue({ sender: 'ai', text: 'Hello' });
 
             window.ChatUI.toggleFullChat(mockContainer);
@@ -158,6 +160,7 @@ describe('ChatUI', () => {
         it('collapses to minimal when no recent AI messages', () => {
             window.ChatState.setState.mockReturnValue(true);
             window.ChatState.isFullState.mockReturnValue(true);
+            window.ChatState.getMessages.mockReturnValue([]);
             window.ChatState.getLastMessage.mockReturnValue({ sender: 'user', text: 'Hello' });
 
             window.ChatUI.toggleFullChat(mockContainer);
@@ -168,6 +171,7 @@ describe('ChatUI', () => {
         it('collapses to minimal when no messages', () => {
             window.ChatState.setState.mockReturnValue(true);
             window.ChatState.isFullState.mockReturnValue(true);
+            window.ChatState.getMessages.mockReturnValue([]);
             window.ChatState.getLastMessage.mockReturnValue(null);
 
             window.ChatUI.toggleFullChat(mockContainer);

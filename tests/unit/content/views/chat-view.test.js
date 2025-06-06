@@ -34,6 +34,7 @@ global.chrome = {
 // Mock dependencies at module level
 global.ChatState = {
     getState: jest.fn(),
+    getMessages: jest.fn(() => []),
     getLastMessage: jest.fn(),
     isRecentState: jest.fn(),
     isFullState: jest.fn()
@@ -161,6 +162,7 @@ describe('ChatView', () => {
     describe('updateState', () => {
         it('shows/hides correct areas in recent state', () => {
             global.ChatState.getState.mockReturnValue('recent');
+            global.ChatState.getMessages.mockReturnValue([{sender: 'ai', text: 'test'}]);
             global.ChatState.isRecentState.mockReturnValue(true);
             global.ChatState.isFullState.mockReturnValue(false);
 
@@ -250,6 +252,10 @@ describe('ChatView', () => {
 
     describe('updateRecentArea', () => {
         it('shows last AI message', () => {
+            global.ChatState.getMessages.mockReturnValue([{
+                sender: 'ai',
+                text: 'Hello from AI'
+            }]);
             global.ChatState.getLastMessage.mockReturnValue({
                 sender: 'ai',
                 text: 'Hello from AI'
@@ -262,6 +268,7 @@ describe('ChatView', () => {
         });
 
         it('clears area when no AI message', () => {
+            global.ChatState.getMessages.mockReturnValue([]);
             global.ChatState.getLastMessage.mockReturnValue({
                 sender: 'user',
                 text: 'Hello from user'
@@ -273,6 +280,7 @@ describe('ChatView', () => {
         });
 
         it('clears area when no messages', () => {
+            global.ChatState.getMessages.mockReturnValue([]);
             global.ChatState.getLastMessage.mockReturnValue(null);
 
             window.ChatView.updateRecentArea(mockContainer);
@@ -291,7 +299,7 @@ describe('ChatView', () => {
 
             window.ChatView.ensureWithinViewport(mockContainer);
 
-            expect(mockContainer.style.top).toBe('10px');
+            expect(mockContainer.style.top).toBe('20px');
             expect(mockContainer.style.bottom).toBe('auto');
         });
 
@@ -304,7 +312,7 @@ describe('ChatView', () => {
 
             window.ChatView.ensureWithinViewport(mockContainer);
 
-            expect(mockContainer.style.top).toBe('608px');
+            expect(mockContainer.style.top).toBe('598px');
             expect(mockContainer.style.bottom).toBe('auto');
         });
 

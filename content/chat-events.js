@@ -152,8 +152,8 @@ window.ChatEvents = (function() {
       const maxX = window.innerWidth - containerRect.width;
       const maxY = window.innerHeight - containerRect.height;
       
-      newX = Math.max(10, Math.min(newX, maxX - 10));
-      newY = Math.max(10, Math.min(newY, maxY - 10));
+      newX = Math.max(20, Math.min(newX, maxX - 20));
+      newY = Math.max(20, Math.min(newY, maxY - 20));
       
       container.style.left = newX + 'px';
       container.style.top = newY + 'px';
@@ -409,6 +409,11 @@ window.ChatEvents = (function() {
       if (window.ChatView && window.ChatView.updateRecentArea) {
         window.ChatView.updateRecentArea(container);
       }
+    }
+    
+    // Ensure chat stays within viewport after display update
+    if (window.ChatView && window.ChatView.ensureWithinViewport) {
+      window.ChatView.ensureWithinViewport(container);
     }
   }
   
