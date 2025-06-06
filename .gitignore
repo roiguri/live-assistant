@@ -138,3 +138,6 @@ dist
 # cursor
 .cursor
 .plan
+
+# Claude Code
+CLAUDE.md
