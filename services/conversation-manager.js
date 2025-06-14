@@ -183,4 +183,25 @@ globalThis.ConversationManager = class ConversationManager {
     setConnectionManager(connectionManager) {
         this.connectionManager = connectionManager;
     }
+    
+    async removeLastUserMessage() {
+        // Find and remove the last user message
+        for (let i = this.messages.length - 1; i >= 0; i--) {
+            if (this.messages[i].sender === 'user') {
+                const removedMessage = this.messages.splice(i, 1)[0];
+                await this.saveToStorage();
+                this.broadcastUpdate();
+                
+                this.errorHandler.debug('ConversationManager', 'Last user message removed', {
+                    messageId: removedMessage.id,
+                    totalMessages: this.messages.length
+                });
+                
+                return removedMessage;
+            }
+        }
+        
+        this.errorHandler.debug('ConversationManager', 'No user message found to remove');
+        return null;
+    }
 };

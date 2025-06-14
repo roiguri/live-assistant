@@ -257,7 +257,7 @@ describe('MessageRouter', () => {
             
             messageRouter.handleMessage(message, sender, sendResponse);
             
-            expect(mockConnectionManager.handleTextMessage).toHaveBeenCalledWith('Hello world', 123);
+            expect(mockConnectionManager.handleTextMessage).toHaveBeenCalledWith('Hello world', 123, sendResponse);
         });
 
         it('should handle TAKE_SCREENSHOT correctly', () => {

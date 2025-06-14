@@ -7,30 +7,24 @@ window.ChatController = (function() {
       
       if (!message) return;
       
-      // Finalize any existing response and reset state
-      finalizeCurrentResponse();
+      // Check if connection is available
+      if (ConnectionState.getInputBlocked()) {
+        // Queue the message for later retry
+        ConnectionState.addPendingMessage(message);
+        window.ChatUI.clearInput(container);
+        
+        // Show user feedback
+        window.ChatUI.addMessage(container, 'Message queued - will send when connection is restored', 'system');
+        return;
+      }
       
-      // Add user message to UI immediately
-      window.ChatUI.addMessage(container, message, 'user');
-      window.ChatUI.clearInput(container);
-      
-      // Store user message in background for conversation history and cross-tab sync
-      // This saves the message to persistent storage and enables shared mode
-      chrome.runtime.sendMessage({
-        type: 'ADD_MESSAGE',
-        text: message,
-        sender: 'user'
+      // Use shared sending logic
+      sendMessageToAI(container, message, {
+        isRetry: false,
+        currentRetryCount: 0,
+        addToUI: true,
+        clearInput: true
       });
-      
-      // Send to AI for processing and response generation
-      // This triggers the actual AI communication through Gemini Live API
-      chrome.runtime.sendMessage({
-        type: 'SEND_TEXT_MESSAGE',
-        text: message
-      })
-      
-      // Show typing indicator
-      MessageView.showTypingIndicator(container);
     }
     
     function receiveResponse(text, isComplete) {
@@ -161,13 +155,141 @@ window.ChatController = (function() {
       return null;
     }
     
+    // Helper function to remove the last user message from UI
+    function removeLastUserMessage(container) {
+      // Remove from UI
+      const messagesArea = container.querySelector('.chat-messages');
+      if (messagesArea) {
+        const messages = messagesArea.querySelectorAll('.message-user');
+        if (messages.length > 0) {
+          const lastUserMessage = messages[messages.length - 1];
+          lastUserMessage.remove();
+        }
+      }
+      
+      // Also remove from recent area if visible
+      if (ChatState.isRecentState()) {
+        ChatView.updateRecentArea(container);
+      }
+    }
+    
+    // Function to retry pending messages when connection is restored
+    function retryPendingMessages() {
+      const container = getContainerFromShadowDOM();
+      if (!container) return;
+      
+      const pendingMessages = ConnectionState.getPendingMessages();
+      if (pendingMessages.length === 0) return;
+      
+      // Clear all pending messages and try to send them
+      ConnectionState.clearPendingMessages();
+      
+      // Send each pending message with exponential backoff based on retry count
+      pendingMessages.forEach((pendingMessage, index) => {
+        const retryDelay = Math.min(1000 * Math.pow(2, pendingMessage.retryCount || 0), 30000); // Max 30 seconds
+        const messageDelay = index * 200; // 200ms between messages
+        const totalDelay = retryDelay + messageDelay;
+        
+        setTimeout(() => {
+          sendMessageDirectly(container, pendingMessage.text, pendingMessage.retryCount || 0);
+        }, totalDelay);
+      });
+    }
+    
+    // Shared function to handle message sending logic
+    function sendMessageToAI(container, messageText, options = {}) {
+      const { 
+        isRetry = false, 
+        currentRetryCount = 0, 
+        addToUI = true, 
+        clearInput = false 
+      } = options;
+      
+      // Finalize any existing response and reset state
+      finalizeCurrentResponse();
+      
+      // Add user message to UI if requested
+      if (addToUI) {
+        window.ChatUI.addMessage(container, messageText, 'user');
+      }
+      
+      // Clear input if requested
+      if (clearInput) {
+        window.ChatUI.clearInput(container);
+      }
+      
+      // Send to AI for processing and response generation
+      chrome.runtime.sendMessage({
+        type: 'SEND_TEXT_MESSAGE',
+        text: messageText
+      }, (response) => {
+        // Handle send failure/success
+        if (chrome.runtime.lastError || (response && !response.success)) {
+          // Remove the message from UI if send failed
+          if (addToUI) {
+            removeLastUserMessage(container);
+          }
+          
+          if (isRetry) {
+            // Handle retry failure
+            const MAX_RETRY_ATTEMPTS = 3;
+            if (currentRetryCount < MAX_RETRY_ATTEMPTS) {
+              // Queue the message for retry again with incremented retry count
+              ConnectionState.addPendingMessage(messageText, currentRetryCount + 1);
+              
+              // Show system message with retry info
+              window.ChatUI.addMessage(container, `Connection unstable - message queued for retry ${currentRetryCount + 1}/${MAX_RETRY_ATTEMPTS}`, 'system');
+            } else {
+              // Max retries exceeded
+              window.ChatUI.addMessage(container, 'Message failed after maximum retry attempts - please check your connection and try again', 'system');
+            }
+          } else {
+            // Handle initial send failure
+            ConnectionState.addPendingMessage(messageText);
+            
+            // Show system message based on error type
+            let systemMessage = 'Message queued - will send when connection is restored';
+            if (response && response.error) {
+              if (response.error.includes('internet') || response.error.includes('network')) {
+                systemMessage = 'No internet connection - message queued for when connection returns';
+              } else if (response.error.includes('timeout')) {
+                systemMessage = 'Connection timeout - message queued for retry';
+              }
+            }
+            window.ChatUI.addMessage(container, systemMessage, 'system');
+          }
+        } else if (response && response.success) {
+          // Only store the message in conversation history if it was sent successfully
+          chrome.runtime.sendMessage({
+            type: 'ADD_MESSAGE',
+            text: messageText,
+            sender: 'user'
+          });
+          
+          // Show typing indicator only if message was sent successfully
+          MessageView.showTypingIndicator(container);
+        }
+      });
+    }
+
+    // Helper function to send a message directly without using the input field
+    function sendMessageDirectly(container, messageText, currentRetryCount = 0) {
+      sendMessageToAI(container, messageText, {
+        isRetry: true,
+        currentRetryCount,
+        addToUI: true,
+        clearInput: false
+      });
+    }
+    
     // Public API
     return {
       sendMessage,
       receiveResponse,
       handleError,
       changeState,
-      takeScreenshot
+      takeScreenshot,
+      retryPendingMessages
     };
     
 })();

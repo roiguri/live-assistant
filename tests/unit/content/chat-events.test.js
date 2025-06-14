@@ -127,6 +127,15 @@ global.ChatView = {
     updateRecentArea: jest.fn()
 };
 
+global.ConnectionState = {
+    getInputBlocked: jest.fn(),
+    setConnectionStatus: jest.fn(),
+    addObserver: jest.fn(),
+    addPendingMessage: jest.fn(),
+    getPendingMessages: jest.fn(),
+    clearPendingMessages: jest.fn()
+};
+
 // Load the module after mocks are set up
 require('../../../content/chat-events.js');
 
@@ -169,6 +178,10 @@ describe('ChatEvents', () => {
         
         // Reset confirm
         global.confirm = jest.fn();
+        
+        // Set default mock return values
+        global.ConnectionState.getInputBlocked.mockReturnValue(false);
+        global.ConnectionState.getPendingMessages.mockReturnValue([]);
         
         // Create mock elements
         mockElements = {

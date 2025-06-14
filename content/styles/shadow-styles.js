@@ -341,6 +341,17 @@ p {
   box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.1);
 }
 
+.chat-input:disabled {
+  background: #f5f5f5;
+  color: #999;
+  border-color: #e8e8e8;
+  cursor: not-allowed;
+}
+
+.chat-input:disabled::placeholder {
+  color: #bbb;
+}
+
 .chat-send {
   background: #007AFF;
   color: white;

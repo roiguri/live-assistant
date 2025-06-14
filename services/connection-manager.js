@@ -10,6 +10,8 @@ globalThis.ConnectionManager = class ConnectionManager {
       this.currentResponse = '';
       this.retryTimeout = null;
       this.setupTimeout = null;
+      this.networkCheckInterval = null;
+      this.messageTimeouts = new Map();
       
       // Event handlers for setup completion
       this.onSetupComplete = null;
@@ -20,6 +22,9 @@ globalThis.ConnectionManager = class ConnectionManager {
       this.apiService = new globalThis.ApiService();
       this.errorHandler = new globalThis.ErrorHandler();
       this.conversationManager = null;
+      
+      // Start network monitoring
+      this.startNetworkMonitoring();
   }
   
   setConversationManager(conversationManager) {
@@ -120,8 +125,13 @@ globalThis.ConnectionManager = class ConnectionManager {
           
           this.ws.onclose = (event) => {
               clearTimeout(connectionTimeout);
+              this.errorHandler.debug('Connection', `WebSocket closed: code=${event.code}, reason=${event.reason}`);
+              
               if (this.connectionState.status === 'connecting') {
                   reject(new Error('WebSocket closed during connection'));
+              } else {
+                  // Connection lost after being established
+                  this.updateStatus('disconnected', 'Connection lost');
               }
           };
           
@@ -188,6 +198,11 @@ globalThis.ConnectionManager = class ConnectionManager {
               break;
               
           case 'content':
+              // Clear timeout for this specific message if we can identify it
+              if (result.messageId) {
+                  this.clearMessageTimeout(result.messageId);
+              }
+              
               if (result.text.trim()) {
                   this.sendResponseToContentScript(result.text, result.isComplete);
               }
@@ -323,9 +338,89 @@ globalThis.ConnectionManager = class ConnectionManager {
       }
   }
   
+  // Network monitoring using browser online/offline events
+  startNetworkMonitoring() {
+      // Listen for browser online/offline events
+      globalThis.addEventListener('online', () => {
+          this.errorHandler.info('Connection', 'Network came back online');
+          if (this.connectionState.status === 'failed') {
+              // Try to reconnect when network comes back
+              this.connect();
+          }
+      });
+      
+      globalThis.addEventListener('offline', () => {
+          this.errorHandler.info('Connection', 'Network went offline');
+          this.updateStatus('failed', 'Network offline');
+      });
+      
+      // Check initial online status
+      if (!globalThis.navigator.onLine) {
+          this.updateStatus('failed', 'Network offline');
+      }
+  }
+  
+  stopNetworkMonitoring() {
+      // Clean up event listeners if needed
+      // Note: In a service worker context, we don't typically remove these listeners
+  }
+
+  // Improved network connectivity check with fallback URLs
+  async checkNetworkConnectivity() {
+      const testUrls = [
+          'https://generativelanguage.googleapis.com',  // Primary service endpoint
+          'https://www.googleapis.com',                 // Google APIs (fallback)
+          'https://8.8.8.8',                          // Public DNS (fallback)
+      ];
+
+      for (const url of testUrls) {
+          try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 3000);
+              
+              await fetch(url, {
+                  method: 'HEAD',
+                  mode: 'no-cors',
+                  signal: controller.signal,
+                  cache: 'no-cache'
+              });
+              
+              clearTimeout(timeoutId);
+              this.errorHandler.debug('Connection', `Network connectivity check passed using ${url}`);
+              return true;
+          } catch (error) {
+              this.errorHandler.debug('Connection', `Network check failed for ${url}: ${error.message}`);
+              // Continue to next URL
+          }
+      }
+      
+      // All connectivity checks failed
+      return false;
+  }
+  
+  clearMessageTimeout(messageId) {
+      if (this.messageTimeouts && this.messageTimeouts.has(`msg_${messageId}`)) {
+          const timeoutId = this.messageTimeouts.get(`msg_${messageId}`);
+          clearTimeout(timeoutId);
+          this.messageTimeouts.delete(`msg_${messageId}`);
+          this.errorHandler.debug('Connection', `Cleared timeout for message ${messageId}`);
+      }
+  }
+
+  clearMessageTimeouts() {
+      if (this.messageTimeouts) {
+          this.messageTimeouts.forEach((timeoutId) => {
+              clearTimeout(timeoutId);
+          });
+          this.messageTimeouts.clear();
+      }
+  }
+
   // Clean up connection
   cleanup() {
       this.stopRetries();
+      this.stopNetworkMonitoring();
+      this.clearMessageTimeouts();
       
       if (this.setupTimeout) {
           clearTimeout(this.setupTimeout);
@@ -366,7 +461,32 @@ globalThis.ConnectionManager = class ConnectionManager {
   }
   
   // Message handling
-  async handleTextMessage(text, tabId) {
+  async handleTextMessage(text, tabId, sendResponse = null) {
+      // Check network connectivity first
+      if (!globalThis.navigator.onLine) {
+          const errorMsg = 'No internet connection - please check your network';
+          this.errorHandler.info('Connection', 'navigator.onLine is false - no internet');
+          this.updateStatus('failed', 'Network offline');
+          if (sendResponse) {
+              sendResponse({ success: false, error: errorMsg });
+          }
+          return;
+      }
+      
+      // In a real browser environment, do a quick connectivity test
+      if (typeof globalThis.fetch !== 'undefined' && !globalThis.navigator.userAgent.includes('jsdom')) {
+          const connectivityCheckPassed = await this.checkNetworkConnectivity();
+          if (!connectivityCheckPassed) {
+              const errorMsg = 'No internet connection - please check your network';
+              this.errorHandler.info('Connection', 'Network connectivity check failed');
+              this.updateStatus('failed', 'Network offline');
+              if (sendResponse) {
+                  sendResponse({ success: false, error: errorMsg });
+              }
+              return;
+          }
+      }
+      
       if (!this.isConnected()) {
           let error = 'Not connected to AI service';
           if (this.connectionState.status === 'connecting') {
@@ -375,19 +495,54 @@ globalThis.ConnectionManager = class ConnectionManager {
               error = 'Connection failed - click ↻ to retry';
           }
           
-          chrome.tabs.sendMessage(tabId, { type: 'AI_ERROR', error }).catch(() => {});
+          if (sendResponse) {
+              sendResponse({ success: false, error });
+          }
           return;
       }
       
       const { message, messageId } = this.geminiClient.createTextMessage(text);
       
       try {
+          // Check WebSocket state before sending
+          if (this.ws.readyState !== globalThis.WebSocket.OPEN) {
+              throw new Error('WebSocket connection not ready');
+          }
+          
           this.ws.send(JSON.stringify(message));
           this.errorHandler.debug('Message', `Message sent [${messageId}]`);
+          
+          // Set up a timeout to detect network issues
+          // If no response is received within 5 seconds, assume network problem
+          const timeoutId = setTimeout(() => {
+              if (this.geminiClient.getPendingMessage(`msg_${messageId}`)) {
+                  this.errorHandler.logWarning('Connection', `Message timeout [${messageId}] - likely network issue`);
+                  this.geminiClient.clearPendingMessage(`msg_${messageId}`);
+                  this.updateStatus('failed', 'Network timeout - check your internet connection');
+              }
+          }, 5000);
+          
+          // Store timeout ID so we can clear it when response arrives
+          if (!this.messageTimeouts) {
+              this.messageTimeouts = new Map();
+          }
+          this.messageTimeouts.set(`msg_${messageId}`, timeoutId);
+          
+          // Message sent successfully to WebSocket
+          if (sendResponse) {
+              sendResponse({ success: true, messageId });
+          }
       } catch (error) {
           this.geminiClient.clearPendingMessage(`msg_${messageId}`);
           const userError = this.errorHandler.handleMessageError(error.message, text);
-          chrome.tabs.sendMessage(tabId, { type: 'AI_ERROR', error: userError }).catch(() => {});
+          
+          // Update connection status on send failure
+          this.updateStatus('failed', 'Send failed - check connection');
+          
+          // Message send failed
+          if (sendResponse) {
+              sendResponse({ success: false, error: userError });
+          }
       }
   }
   
