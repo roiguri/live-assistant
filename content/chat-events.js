@@ -250,23 +250,27 @@ window.ChatEvents = (function() {
     const pendingMessages = ConnectionState.getPendingMessages();
     
     if (isBlocked && pendingMessages.length > 0) {
-      // Show the first queued message in the input box (disabled)
-      const firstMessage = pendingMessages[0];
-      input.value = firstMessage.text;
-      input.style.fontStyle = 'italic';
-      input.style.color = '#666';
+      // Show queued message with visual indication
+      showQueuedMessageInInput(input, pendingMessages[0]);
     } else if (!isBlocked) {
-      // Connection restored - clear italic styling if it was set
-      input.style.fontStyle = '';
-      input.style.color = '';
-      
-      // Only clear the input if it's showing a queued message
-      // (Don't clear if user typed something new)
-      if (pendingMessages.length === 0 && input.value.trim()) {
-        // Check if the current input matches any recently cleared message
-        // If so, it's safe to clear it
-        input.value = '';
-      }
+      // Clear queued message styling and potentially clear input
+      clearQueuedMessageFromInput(input, pendingMessages.length === 0);
+    }
+  }
+  
+  function showQueuedMessageInInput(input, queuedMessage) {
+    input.value = queuedMessage.text;
+    input.style.fontStyle = 'italic';
+    input.style.color = '#666';
+  }
+  
+  function clearQueuedMessageFromInput(input, shouldClearInput) {
+    input.style.fontStyle = '';
+    input.style.color = '';
+    
+    // Only clear input if no pending messages and input has content
+    if (shouldClearInput && input.value.trim()) {
+      input.value = '';
     }
   }
   

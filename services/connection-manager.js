@@ -198,8 +198,10 @@ globalThis.ConnectionManager = class ConnectionManager {
               break;
               
           case 'content':
-              // Clear any message timeouts since we got a response
-              this.clearMessageTimeouts();
+              // Clear timeout for this specific message if we can identify it
+              if (result.messageId) {
+                  this.clearMessageTimeout(result.messageId);
+              }
               
               if (result.text.trim()) {
                   this.sendResponseToContentScript(result.text, result.isComplete);
@@ -362,7 +364,49 @@ globalThis.ConnectionManager = class ConnectionManager {
       // Clean up event listeners if needed
       // Note: In a service worker context, we don't typically remove these listeners
   }
+
+  // Improved network connectivity check with fallback URLs
+  async checkNetworkConnectivity() {
+      const testUrls = [
+          'https://generativelanguage.googleapis.com',  // Primary service endpoint
+          'https://www.googleapis.com',                 // Google APIs (fallback)
+          'https://8.8.8.8',                          // Public DNS (fallback)
+      ];
+
+      for (const url of testUrls) {
+          try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 3000);
+              
+              await fetch(url, {
+                  method: 'HEAD',
+                  mode: 'no-cors',
+                  signal: controller.signal,
+                  cache: 'no-cache'
+              });
+              
+              clearTimeout(timeoutId);
+              this.errorHandler.debug('Connection', `Network connectivity check passed using ${url}`);
+              return true;
+          } catch (error) {
+              this.errorHandler.debug('Connection', `Network check failed for ${url}: ${error.message}`);
+              // Continue to next URL
+          }
+      }
+      
+      // All connectivity checks failed
+      return false;
+  }
   
+  clearMessageTimeout(messageId) {
+      if (this.messageTimeouts && this.messageTimeouts.has(`msg_${messageId}`)) {
+          const timeoutId = this.messageTimeouts.get(`msg_${messageId}`);
+          clearTimeout(timeoutId);
+          this.messageTimeouts.delete(`msg_${messageId}`);
+          this.errorHandler.debug('Connection', `Cleared timeout for message ${messageId}`);
+      }
+  }
+
   clearMessageTimeouts() {
       if (this.messageTimeouts) {
           this.messageTimeouts.forEach((timeoutId) => {
@@ -431,22 +475,10 @@ globalThis.ConnectionManager = class ConnectionManager {
       
       // In a real browser environment, do a quick connectivity test
       if (typeof globalThis.fetch !== 'undefined' && !globalThis.navigator.userAgent.includes('jsdom')) {
-          try {
-              const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 2000);
-              
-              await fetch('https://www.google.com/favicon.ico', {
-                  method: 'HEAD',
-                  mode: 'no-cors',
-                  signal: controller.signal,
-                  cache: 'no-cache'
-              });
-              
-              clearTimeout(timeoutId);
-              this.errorHandler.debug('Connection', 'Network connectivity check passed');
-          } catch (error) {
+          const connectivityCheckPassed = await this.checkNetworkConnectivity();
+          if (!connectivityCheckPassed) {
               const errorMsg = 'No internet connection - please check your network';
-              this.errorHandler.info('Connection', `Network check failed: ${error.message}`);
+              this.errorHandler.info('Connection', 'Network connectivity check failed');
               this.updateStatus('failed', 'Network offline');
               if (sendResponse) {
                   sendResponse({ success: false, error: errorMsg });

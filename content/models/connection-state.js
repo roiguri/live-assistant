@@ -131,12 +131,30 @@ window.ConnectionState = (function() {
     }
     
     // Pending messages management
-    function addPendingMessage(message) {
+    function addPendingMessage(message, retryCount = 0) {
+        // Check if we already have this message (to avoid duplicates during retry)
+        const existingMessage = pendingMessages.find(msg => msg.text === message);
+        if (existingMessage) {
+            existingMessage.retryCount = (existingMessage.retryCount || 0) + 1;
+            existingMessage.timestamp = Date.now();
+            notifyObservers('pending-message-updated', { message: existingMessage });
+            return existingMessage.id;
+        }
+        
         const pendingMessage = {
             id: `pending_${Date.now()}_${Math.random()}`,
             text: message,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            retryCount: retryCount
         };
+        
+        // Limit queue size to prevent memory issues
+        const MAX_PENDING_MESSAGES = 10;
+        if (pendingMessages.length >= MAX_PENDING_MESSAGES) {
+            const removedMessage = pendingMessages.shift();
+            notifyObservers('pending-message-removed', { message: removedMessage, reason: 'queue_full' });
+        }
+        
         pendingMessages.push(pendingMessage);
         notifyObservers('pending-message-added', { message: pendingMessage });
         return pendingMessage.id;
