@@ -8,6 +8,11 @@ window.ConnectionState = (function() {
     let isStreaming = false;
     let observers = [];
     
+    // Connection status tracking
+    let connectionStatus = 'disconnected';
+    let pendingMessages = [];
+    let isInputBlocked = false;
+    
     // Observer pattern for UI state changes
     function addObserver(callback) {
         observers.push(callback);
@@ -90,6 +95,74 @@ window.ConnectionState = (function() {
         return isCurrentlyStreaming();
     }
     
+    // Connection status management
+    function setConnectionStatus(status) {
+        const oldStatus = connectionStatus;
+        connectionStatus = status;
+        
+        // Update input blocking based on connection status
+        setInputBlocked(status !== 'connected');
+        
+        if (oldStatus !== status) {
+            notifyObservers('connection-status-changed', { status, oldStatus });
+        }
+    }
+    
+    function getConnectionStatus() {
+        return connectionStatus;
+    }
+    
+    function isConnected() {
+        return connectionStatus === 'connected';
+    }
+    
+    // Input blocking management
+    function setInputBlocked(blocked) {
+        const oldBlocked = isInputBlocked;
+        isInputBlocked = blocked;
+        
+        if (oldBlocked !== blocked) {
+            notifyObservers('input-blocked-changed', { blocked });
+        }
+    }
+    
+    function getInputBlocked() {
+        return isInputBlocked;
+    }
+    
+    // Pending messages management
+    function addPendingMessage(message) {
+        const pendingMessage = {
+            id: `pending_${Date.now()}_${Math.random()}`,
+            text: message,
+            timestamp: Date.now()
+        };
+        pendingMessages.push(pendingMessage);
+        notifyObservers('pending-message-added', { message: pendingMessage });
+        return pendingMessage.id;
+    }
+    
+    function getPendingMessages() {
+        return [...pendingMessages];
+    }
+    
+    function clearPendingMessages() {
+        const clearedMessages = [...pendingMessages];
+        pendingMessages = [];
+        notifyObservers('pending-messages-cleared', { clearedMessages });
+        return clearedMessages;
+    }
+    
+    function removePendingMessage(messageId) {
+        const index = pendingMessages.findIndex(msg => msg.id === messageId);
+        if (index !== -1) {
+            const removedMessage = pendingMessages.splice(index, 1)[0];
+            notifyObservers('pending-message-removed', { message: removedMessage });
+            return removedMessage;
+        }
+        return null;
+    }
+    
     // Public API
     return {
         setTyping,
@@ -105,7 +178,19 @@ window.ConnectionState = (function() {
         clearResponseTimeout,
         reset,
         addObserver,
-        clearObservers
+        clearObservers,
+        // Connection status
+        setConnectionStatus,
+        getConnectionStatus,
+        isConnected,
+        // Input blocking
+        setInputBlocked,
+        getInputBlocked,
+        // Pending messages
+        addPendingMessage,
+        getPendingMessages,
+        clearPendingMessages,
+        removePendingMessage
     };
     
 })();

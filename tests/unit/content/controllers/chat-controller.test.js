@@ -89,7 +89,13 @@ global.ConnectionState = {
     clearTyping: jest.fn(),
     clearResponseTimeout: jest.fn(),
     getStreamingElement: jest.fn(),
-    setResponseTimeout: jest.fn()
+    setResponseTimeout: jest.fn(),
+    // New connection handling methods
+    getInputBlocked: jest.fn(),
+    setConnectionStatus: jest.fn(),
+    addPendingMessage: jest.fn(),
+    getPendingMessages: jest.fn(),
+    clearPendingMessages: jest.fn()
 };
 
 // Load the module after mocks are set up
@@ -144,6 +150,8 @@ describe('ChatController', () => {
         global.ConnectionState.isTyping.mockReturnValue(false);
         global.ConnectionState.getTypingId.mockReturnValue(null);
         global.ConnectionState.getStreamingElement.mockReturnValue(null);
+        global.ConnectionState.getInputBlocked.mockReturnValue(false);
+        global.ConnectionState.getPendingMessages.mockReturnValue([]);
         
         // Simple createElement mock: returns a fresh mock element by default
         mockCreateElement.mockImplementation(() => createMockElement());
@@ -154,6 +162,13 @@ describe('ChatController', () => {
             const message = 'Hello AI!';
             global.ChatUI.getInputValue.mockReturnValue(message);
 
+            // Mock successful response
+            global.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+                if (msg.type === 'SEND_TEXT_MESSAGE' && callback) {
+                    callback({ success: true });
+                }
+            });
+
             window.ChatController.sendMessage(mockContainer);
 
             // Verify input validation
@@ -163,27 +178,34 @@ describe('ChatController', () => {
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, message, 'user');
             expect(global.ChatUI.clearInput).toHaveBeenCalledWith(mockContainer);
             
-            // Verify user message stored in background
+            // Verify message sent to AI for processing first
+            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
+                type: 'SEND_TEXT_MESSAGE',
+                text: message
+            }, expect.any(Function));
+            
+            // Verify user message stored in background after successful send
             expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
                 type: 'ADD_MESSAGE',
                 text: message,
                 sender: 'user'
             });
-            
-            // Verify message sent to AI for processing
-            expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
-                type: 'SEND_TEXT_MESSAGE',
-                text: message
-            });
         });
 
-        it('shows typing indicator', () => {
+        it('shows typing indicator when message sends successfully', () => {
             const message = 'Test message';
             global.ChatUI.getInputValue.mockReturnValue(message);
 
+            // Mock successful response
+            global.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+                if (msg.type === 'SEND_TEXT_MESSAGE' && callback) {
+                    callback({ success: true });
+                }
+            });
+
             window.ChatController.sendMessage(mockContainer);
 
-            // Verify typing indicator is shown
+            // Verify typing indicator is shown only after successful send
             expect(global.MessageView.showTypingIndicator).toHaveBeenCalledWith(mockContainer);
         });
 
@@ -530,6 +552,13 @@ describe('ChatController', () => {
                 .mockReturnValueOnce(message1)
                 .mockReturnValueOnce(message2);
 
+            // Mock successful response for both messages
+            global.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+                if (msg.type === 'SEND_TEXT_MESSAGE' && callback) {
+                    callback({ success: true });
+                }
+            });
+
             // Send two messages rapidly
             window.ChatController.sendMessage(mockContainer);
             window.ChatController.sendMessage(mockContainer);
@@ -537,7 +566,7 @@ describe('ChatController', () => {
             // Verify both messages are processed
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, message1, 'user');
             expect(global.ChatUI.addMessage).toHaveBeenCalledWith(mockContainer, message2, 'user');
-            // Each messagesends both ADD_MESSAGE and SEND_TEXT_MESSAGE (2 messages × 2 calls = 4 total)
+            // Each message sends both ADD_MESSAGE and SEND_TEXT_MESSAGE (2 messages × 2 calls = 4 total)
             expect(global.chrome.runtime.sendMessage).toHaveBeenCalledTimes(4);
         });
 

@@ -10,6 +10,7 @@ window.ChatEvents = (function() {
     setupDragEvents(container);
     MenuView.setupClickOutside(container);
     setupConnectionMonitoring(container);
+    setupConnectionStateObservers(container);
   }
   
   function setupMenuActions(container) {
@@ -34,16 +35,30 @@ window.ChatEvents = (function() {
     input.addEventListener('keydown', (e) => {
       e.stopPropagation();
       e.stopImmediatePropagation();
+      
+      // Block input if connection is lost
+      if (ConnectionState.getInputBlocked()) {
+        e.preventDefault();
+        return false;
+      }
     }, true); // Use capture phase
     
     input.addEventListener('keypress', (e) => {
       e.stopPropagation();
       e.stopImmediatePropagation();
       
+      // Block input if connection is lost
+      if (ConnectionState.getInputBlocked()) {
+        e.preventDefault();
+        return false;
+      }
+      
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        ChatController.sendMessage(container);
-        updateSendButtonState(container);
+        if (!ConnectionState.getInputBlocked()) {
+          ChatController.sendMessage(container);
+          updateSendButtonState(container);
+        }
       }
     }, true); // Use capture phase
     
@@ -60,8 +75,10 @@ window.ChatEvents = (function() {
     
     // Send button click
     sendBtn.addEventListener('click', () => {
-      ChatController.sendMessage(container);
-      updateSendButtonState(container);
+      if (!ConnectionState.getInputBlocked()) {
+        ChatController.sendMessage(container);
+        updateSendButtonState(container);
+      }
     });
     
     // Input focus effects
@@ -202,9 +219,55 @@ window.ChatEvents = (function() {
     const input = container.querySelector('.chat-input');
     const sendBtn = container.querySelector('.chat-send');
     const hasText = input.value.trim().length > 0;
+    const isBlocked = ConnectionState.getInputBlocked();
     
-    sendBtn.disabled = !hasText;
-    sendBtn.style.opacity = hasText ? '1' : '0.6';
+    // Disable button if no text OR if input is blocked due to connection issues
+    sendBtn.disabled = !hasText || isBlocked;
+    sendBtn.style.opacity = (hasText && !isBlocked) ? '1' : '0.6';
+    
+    // Update input field appearance based on connection status
+    if (isBlocked) {
+      input.disabled = true;
+      const pendingMessages = ConnectionState.getPendingMessages();
+      if (pendingMessages.length > 0) {
+        input.placeholder = `${pendingMessages.length} message(s) queued - will send when connected`;
+      } else {
+        input.placeholder = 'Connection lost - reconnecting...';
+      }
+      input.style.backgroundColor = '#f5f5f5';
+      input.style.color = '#999';
+    } else {
+      input.disabled = false;
+      input.placeholder = 'Ask me anything...';
+      input.style.backgroundColor = '';
+      input.style.color = '';
+    }
+  }
+  
+  function updateInputWithQueuedMessage(container) {
+    const input = container.querySelector('.chat-input');
+    const isBlocked = ConnectionState.getInputBlocked();
+    const pendingMessages = ConnectionState.getPendingMessages();
+    
+    if (isBlocked && pendingMessages.length > 0) {
+      // Show the first queued message in the input box (disabled)
+      const firstMessage = pendingMessages[0];
+      input.value = firstMessage.text;
+      input.style.fontStyle = 'italic';
+      input.style.color = '#666';
+    } else if (!isBlocked) {
+      // Connection restored - clear italic styling if it was set
+      input.style.fontStyle = '';
+      input.style.color = '';
+      
+      // Only clear the input if it's showing a queued message
+      // (Don't clear if user typed something new)
+      if (pendingMessages.length === 0 && input.value.trim()) {
+        // Check if the current input matches any recently cleared message
+        // If so, it's safe to clear it
+        input.value = '';
+      }
+    }
   }
   
   // Initialize message listener for responses from background script
@@ -293,6 +356,9 @@ window.ChatEvents = (function() {
   }
 
   function updateConnectionUI(container, status) {
+    // Update the connection state model
+    ConnectionState.setConnectionStatus(status);
+    
     if (window.ChatView && window.ChatView.updateConnectionStatus) {
       window.ChatView.updateConnectionStatus(container, status, status === 'failed' || status === 'disconnected');
     }
@@ -320,6 +386,55 @@ window.ChatEvents = (function() {
         }
       });
     }, 1000);
+  }
+
+  function setupConnectionStateObservers(container) {
+    // Observer for connection status changes
+    ConnectionState.addObserver((type, data) => {
+      if (type === 'connection-status-changed' || type === 'input-blocked-changed') {
+        updateSendButtonState(container);
+        updateInputWithQueuedMessage(container);
+        
+        // If connection is restored and we have pending messages, trigger retry
+        if (type === 'connection-status-changed' && data.status === 'connected') {
+          const pendingMessages = ConnectionState.getPendingMessages();
+          if (pendingMessages.length > 0) {
+            // Show notification
+            window.ChatUI.addMessage(container, `Connection restored! Retrying ${pendingMessages.length} queued message(s)...`, 'system');
+            
+            // Clear the input before retrying (it will be repopulated after sending)
+            const input = container.querySelector('.chat-input');
+            if (input) {
+              input.value = '';
+            }
+            
+            // Trigger retry after a short delay
+            setTimeout(() => {
+              ChatController.retryPendingMessages();
+            }, 1000);
+          }
+        }
+      }
+      
+      if (type === 'pending-message-added') {
+        // Show the queued message in input box when connection is lost
+        updateInputWithQueuedMessage(container);
+      }
+      
+      if (type === 'pending-messages-cleared') {
+        // Clear input when messages are sent successfully
+        const input = container.querySelector('.chat-input');
+        if (input) {
+          input.value = '';
+          updateSendButtonState(container);
+        }
+      }
+      
+      if (type === 'pending-message-removed') {
+        // Update input to show next queued message if any
+        updateInputWithQueuedMessage(container);
+      }
+    });
   }
   
   function handleChatVisibilityToggle(container, visible) {   

@@ -15,9 +15,12 @@ globalThis.MessageRouter = class MessageRouter {
         
         // SEND_TEXT_MESSAGE: Send user text to AI for processing and response generation
         // This triggers actual AI communication through the Gemini Live API
-        this.registerHandler('SEND_TEXT_MESSAGE', (message, sender) => {
+        this.registerHandler('SEND_TEXT_MESSAGE', (message, sender, sendResponse) => {
             if (this.connectionManager) {
-                this.connectionManager.handleTextMessage(message.text, sender.tab.id);
+                this.connectionManager.handleTextMessage(message.text, sender.tab.id, sendResponse);
+                return true; // Keep channel open for async response
+            } else {
+                sendResponse({ success: false, error: 'No connection manager available' });
             }
         });
 
@@ -135,6 +138,25 @@ globalThis.MessageRouter = class MessageRouter {
                 sendResponse({ uiState: 'minimal' });
                 this.errorHandler.debug('MessageRouter', 'GET_UI_STATE - no conversation manager, defaulting to minimal');
             }
+        });
+
+        // REMOVE_LAST_USER_MESSAGE: Remove the last user message from conversation history
+        // This is used when a message fails to send and needs to be removed from history
+        this.registerHandler('REMOVE_LAST_USER_MESSAGE', async (message, sender, sendResponse) => {
+            try {
+                if (this.conversationManager) {
+                    await this.conversationManager.removeLastUserMessage();
+                    this.errorHandler.debug('MessageRouter', 'REMOVE_LAST_USER_MESSAGE completed');
+                    sendResponse({ success: true });
+                } else {
+                    this.errorHandler.debug('MessageRouter', 'REMOVE_LAST_USER_MESSAGE - no conversation manager');
+                    sendResponse({ success: false });
+                }
+            } catch (error) {
+                this.errorHandler.error('MessageRouter', 'REMOVE_LAST_USER_MESSAGE failed', error.message);
+                sendResponse({ success: false, error: error.message });
+            }
+            return true; // Keep response channel open for async operation
         });
     }
 

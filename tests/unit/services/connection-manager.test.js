@@ -186,36 +186,36 @@ describe('ConnectionManager', () => {
 
   describe('message handling', () => {
     it('should handle disconnected state for text messages', async () => {
-      global.chrome.tabs.sendMessage.mockImplementation(() => Promise.resolve());
+      const sendResponse = jest.fn();
       
-      await connectionManager.handleTextMessage('Hello', 1);
+      await connectionManager.handleTextMessage('Hello', 1, sendResponse);
       
-      expect(global.chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
-        type: 'AI_ERROR',
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
         error: 'Not connected to AI service'
       });
     });
 
     it('should handle connecting state for text messages', async () => {
       connectionManager.connectionState.status = 'connecting';
-      global.chrome.tabs.sendMessage.mockImplementation(() => Promise.resolve());
+      const sendResponse = jest.fn();
       
-      await connectionManager.handleTextMessage('Hello', 1);
+      await connectionManager.handleTextMessage('Hello', 1, sendResponse);
       
-      expect(global.chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
-        type: 'AI_ERROR',
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
         error: 'Still connecting - please wait...'
       });
     });
 
     it('should handle failed state for text messages', async () => {
       connectionManager.connectionState.status = 'failed';
-      global.chrome.tabs.sendMessage.mockImplementation(() => Promise.resolve());
+      const sendResponse = jest.fn();
       
-      await connectionManager.handleTextMessage('Hello', 1);
+      await connectionManager.handleTextMessage('Hello', 1, sendResponse);
       
-      expect(global.chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
-        type: 'AI_ERROR',
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
         error: 'Connection failed - click ↻ to retry'
       });
     });
