@@ -3,122 +3,138 @@
     "tasks": [
       {
         "id": 1,
-        "title": "Remove Drag-and-Drop Functionality",
-        "description": "Remove all drag-and-drop related code, event listeners, and UI elements from the chat interface",
-        "status": "done",
-        "dependencies": [],
+        "title": "Add Model Selection Dropdown to Popup HTML",
+        "description": "Modify the popup HTML to include a new model selection dropdown in the General tab with predefined Gemini model options",
+        "details": "Edit popup/popup.html to add a new .form-group containing a select element with id='modelSelection'. Include three options: 'gemini-2.0-flash' (default), 'gemini-2.0-flash-live-001', and 'gemini-live-2.5-flash-preview'. Position this dropdown within the existing General tab structure, following the same styling pattern as the Chat Position selector. Use semantic HTML with proper label association for accessibility.",
+        "testStrategy": "Verify the dropdown appears correctly in the extension popup UI, displays all three model options, has proper styling consistent with existing form elements, and is accessible via keyboard navigation. Test in multiple browsers to ensure consistent rendering.",
         "priority": "high",
-        "details": "COMPLETED: All drag-and-drop functionality has been successfully removed from the chat interface. Removed the setupDragEvents function entirely from content/chat-events.js (lines 120-216), removed the setupDragEvents(container) call from setupEventListeners function (line 10), removed the drag handle div from getChatHTML template in content/views/chat-view.js (lines 58-60), and removed the entire .drag-handle CSS style block from content/styles/shadow-styles.js (lines 383-419). The chat interface no longer shows a drag handle and will not respond to drag gestures.",
-        "testStrategy": "Verify that the drag handle is no longer visible in the chat interface. Test that dragging gestures have no effect on the chat window. Check that no drag-related JavaScript errors occur in the console. Confirm that the chat window remains stable and doesn't respond to mouse drag events.",
-        "subtasks": [
-          {
-            "id": 1,
-            "title": "Remove setupDragEvents function from content/chat-events.js",
-            "description": "Delete the entire setupDragEvents function (lines 120-216)",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          },
-          {
-            "id": 2,
-            "title": "Remove setupDragEvents call from setupEventListeners function",
-            "description": "Remove the setupDragEvents(container) call from line 10 in setupEventListeners function",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          },
-          {
-            "id": 3,
-            "title": "Remove drag handle div from chat HTML template",
-            "description": "Remove the drag handle div from getChatHTML template in content/views/chat-view.js (lines 58-60)",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          },
-          {
-            "id": 4,
-            "title": "Remove drag handle CSS styles",
-            "description": "Remove the entire .drag-handle style block from content/styles/shadow-styles.js (lines 383-419)",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          }
-        ]
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
       },
       {
         "id": 2,
-        "title": "Implement Position Selection UI in Popup",
-        "description": "Add a dropdown menu to the extension popup for selecting predefined chat window positions",
-        "details": "Add a new .form-group section in popup/popup.html within the 'General' tab containing a select element with id 'chatPosition' and six option values: bottom-right, bottom-center, bottom-left, top-right, top-center, top-left. Set 'bottom-right' as the default selected option. Ensure the dropdown follows the existing popup styling conventions and is properly labeled for accessibility.",
-        "testStrategy": "Verify the dropdown appears correctly in the extension popup within the General tab. Test that all six position options are available and selectable. Confirm the dropdown styling matches the existing popup design. Validate that the default 'Bottom Right' option is pre-selected on first load.",
+        "title": "Implement Model Selection Storage and Event Handling",
+        "description": "Add JavaScript logic to the popup to handle model selection, save preferences to Chrome storage, and communicate changes to the background script",
+        "details": "Modify popup/popup.js to: 1) Get reference to #modelSelection element 2) In loadSavedSettings function, retrieve 'selectedModel' from chrome.storage.local with 'gemini-2.0-flash' as default 3) Add change event listener to dropdown that saves selection to storage and sends MODEL_CHANGED message to background script 4) Display status message 'Model updated. Reconnecting...' when selection changes. Use Chrome Storage API best practices with error handling and async/await patterns.",
+        "testStrategy": "Test that model selection is properly saved to chrome.storage.local, persists across popup open/close cycles, defaults to 'gemini-2.0-flash' for new users, and successfully sends MODEL_CHANGED messages to background script. Verify error handling for storage failures.",
         "priority": "high",
         "dependencies": [
           1
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": []
       },
       {
         "id": 3,
-        "title": "Implement Popup Logic for Position Management",
-        "description": "Add JavaScript logic to handle position selection, storage, and communication with content scripts",
-        "details": "In popup/popup.js, add a reference to the #chatPosition select element. Modify loadSavedSettings to retrieve the saved position from chrome.storage.local with 'bottom-right' as fallback. Add a change event listener to the dropdown that saves the selected value to chrome.storage.local using key 'chatPosition'. Send a message to the background script with type 'POSITION_UPDATE' and the new position value. Implement error handling for storage operations and message passing.",
-        "testStrategy": "Test that selecting a position in the popup saves the value to chrome.storage.local. Verify that the saved position is correctly loaded and displayed when reopening the popup. Confirm that position changes trigger messages to the background script. Test error handling for storage failures and message passing issues.",
+        "title": "Add Background Script Handler for Model Changes",
+        "description": "Implement message handler in background script to process MODEL_CHANGED events and trigger connection reset",
+        "details": "Edit background.js to add a new case in the chrome.runtime.onMessage listener for 'MODEL_CHANGED' message type. The handler should call connectionManager.resetContext() to trigger a clean reconnection with the new model. Ensure proper error handling and logging for debugging purposes. Follow existing message handling patterns in the codebase for consistency.",
+        "testStrategy": "Verify that MODEL_CHANGED messages from popup correctly trigger connectionManager.resetContext(). Test that the connection is properly reset and re-established. Monitor background script console for proper message handling and error logging.",
         "priority": "high",
         "dependencies": [
           2
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": []
       },
       {
         "id": 4,
-        "title": "Update CSS Styles for Position Classes",
-        "description": "Modify shadow-styles.js to remove default positioning and add new position-specific CSS classes",
-        "details": "Remove all default positioning properties (bottom, right, left, top) from the #assistant-chat selector in content/styles/shadow-styles.js. Add six new CSS classes: .position-bottom-right, .position-bottom-left, .position-top-right, .position-top-left, .position-bottom-center, and .position-top-center. Corner positions use 20px margins from edges. Center positions use 50% left positioning with transform: translateX(-50%) for horizontal centering. Ensure all classes maintain the existing width and z-index properties.",
-        "testStrategy": "Verify that the #assistant-chat element has no default positioning after the update. Test that each position class correctly positions the chat window in the expected screen location. Confirm that center positions are properly centered horizontally. Validate that positioning works correctly across different screen sizes and resolutions.",
+        "title": "Create Model Retrieval Method in Connection Manager",
+        "description": "Add a method to retrieve the selected model from Chrome storage with proper fallback to default",
+        "details": "In services/connection-manager.js, create an async method getSelectedModel() that retrieves the model name from chrome.storage.local using key 'selectedModel', defaulting to 'gemini-2.0-flash' if not found. Implement proper error handling for storage access failures and include logging for debugging. Use modern async/await syntax and follow existing code patterns in the ConnectionManager class.",
+        "testStrategy": "Test that getSelectedModel() correctly retrieves saved model preferences, returns proper default when no selection exists, handles Chrome storage errors gracefully, and works correctly for both first-time users and users with existing preferences.",
         "priority": "medium",
         "dependencies": [
-          1
+          2
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": []
       },
       {
         "id": 5,
-        "title": "Implement Position Application in Content Script",
-        "description": "Add logic to apply position classes to the chat container and handle position updates",
-        "details": "In content.js, modify the chat initialization to retrieve the saved position from chrome.storage.local with 'bottom-right' as default. Apply the corresponding position class (position-{value}) to the chatContainer element. Add a chrome.runtime.onMessage listener to handle 'POSITION_UPDATE' messages. When received, remove all existing position classes and apply the new position class. Implement a helper function to manage position class switching efficiently. Ensure the position is applied immediately after chat container creation.",
-        "testStrategy": "Test that the chat window appears in the correct position when a page loads. Verify that position changes from the popup immediately update the chat window location. Confirm that only one position class is applied at a time. Test position persistence across page reloads and different tabs.",
+        "title": "Update Connection Manager Setup to Use Dynamic Model",
+        "description": "Modify the sendSetupAndWait method to use the dynamically retrieved model instead of hardcoded value",
+        "details": "Modify the sendSetupAndWait method in services/connection-manager.js to call getSelectedModel() and pass the result to geminiClient.createSetupMessage(). Ensure this change maintains backward compatibility and doesn't break existing functionality. Add proper error handling for model retrieval failures with fallback to default model. Update method signature and documentation as needed.",
+        "testStrategy": "Test that sendSetupAndWait correctly retrieves and uses the selected model, maintains compatibility with existing connection flow, handles getSelectedModel() failures gracefully, and successfully establishes connections with all supported model types.",
         "priority": "high",
         "dependencies": [
-          3,
           4
         ],
-        "status": "done",
+        "status": "pending",
         "subtasks": []
       },
       {
         "id": 6,
-        "title": "Implement Background Script Message Relaying",
-        "description": "Add message handling in background script to broadcast position updates to all tabs",
-        "details": "In background.js, add a new case to the existing chrome.runtime.onMessage listener to handle 'POSITION_UPDATE' messages. When received, use chrome.tabs.query to get all tabs and broadcast the position update to each tab's content script using chrome.tabs.sendMessage. Include error handling for tabs that may not have the content script loaded. Ensure the message relay preserves the original position value and message structure.",
-        "testStrategy": "Test that changing the position in one tab updates the chat window position in all other open tabs. Verify that the background script correctly relays messages to all tabs with the extension. Confirm that tabs without the content script don't cause errors. Test with multiple tabs open and verify consistent position updates across all instances.",
+        "title": "Update Gemini Client to Accept Dynamic Model Parameter",
+        "description": "Modify the createSetupMessage function to accept model name as parameter instead of using hardcoded value",
+        "details": "Edit services/gemini-client.js to modify createSetupMessage function signature to accept modelName parameter with default value 'gemini-2.0-flash'. Update the function to use the provided model name in the setup payload by constructing the model path as `models/${modelName}`. Ensure backward compatibility by providing the default parameter value. Update JSDoc comments to reflect the new parameter.",
+        "testStrategy": "Test that createSetupMessage correctly formats model names into proper API paths, maintains backward compatibility when no model parameter is provided, generates valid setup messages for all supported models, and handles edge cases like empty or invalid model names.",
+        "priority": "high",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Add CSS Styling for Model Selection Dropdown",
+        "description": "Style the new model selection dropdown to match the existing popup design and ensure responsive behavior",
+        "details": "Edit popup/popup.css to add styling for the new #modelSelection dropdown. Follow existing form styling patterns used for other select elements in the popup. Ensure consistent spacing, typography, hover states, and focus indicators. Add responsive behavior for different popup sizes. Use CSS custom properties where appropriate for maintainability and consistency with the existing design system.",
+        "testStrategy": "Verify that the model selection dropdown has consistent styling with other form elements, displays correctly across different screen sizes, has proper hover and focus states, maintains accessibility contrast ratios, and integrates seamlessly with the existing popup design.",
         "priority": "medium",
         "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Implement Connection Status Feedback During Model Switch",
+        "description": "Add visual feedback to show connection status when users change models",
+        "details": "Enhance the connection status indicator in the chat interface to provide clear feedback during model switching. Update the connection state management to show 'Reconnecting...' status when model changes occur. Ensure the status indicator properly reflects the connection lifecycle: disconnecting from old model, connecting to new model, and successful connection establishment. Coordinate with existing connection status logic in ConnectionState model.",
+        "testStrategy": "Test that connection status accurately reflects model switching process, shows appropriate loading states during reconnection, handles connection failures gracefully, and provides clear user feedback throughout the model change process. Verify status updates are synchronized across all UI components.",
+        "priority": "medium",
+        "dependencies": [
+          3,
           5
         ],
-        "status": "done",
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Add Error Handling for Model Selection and Connection",
+        "description": "Implement comprehensive error handling for model selection failures and connection issues",
+        "details": "Add robust error handling throughout the model selection flow: 1) Handle Chrome storage failures in popup and connection manager 2) Implement fallback mechanisms for invalid model selections 3) Add proper error messages for connection failures with specific models 4) Implement retry logic for transient connection issues 5) Add logging for debugging model-related issues. Use the existing ErrorHandler class patterns for consistency.",
+        "testStrategy": "Test error scenarios including storage failures, invalid model selections, network connectivity issues, API authentication failures, and unsupported model names. Verify that error messages are user-friendly, fallback mechanisms work correctly, and the system remains stable during error conditions.",
+        "priority": "high",
+        "dependencies": [
+          6,
+          8
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Add Unit Tests for Model Selection Feature",
+        "description": "Create comprehensive unit tests for all model selection functionality components",
+        "details": "Create unit tests following the existing Jest test structure in tests/unit/. Test files needed: 1) tests/unit/popup/popup-model-selection.test.js for popup logic 2) tests/unit/services/connection-manager-model.test.js for connection manager changes 3) tests/unit/services/gemini-client-model.test.js for Gemini client updates. Mock Chrome APIs using existing test helpers. Test all success paths, error conditions, edge cases, and integration points. Aim for 75% code coverage following project standards.",
+        "testStrategy": "Verify all unit tests pass, achieve target code coverage of 75%, test both success and failure scenarios, mock Chrome APIs correctly, and validate that tests catch regressions in model selection functionality. Run tests in CI/CD pipeline to ensure continuous validation.",
+        "priority": "medium",
+        "dependencies": [
+          9
+        ],
+        "status": "pending",
         "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-07-09T17:30:53.237Z",
-      "updated": "2025-07-09T18:29:24.002Z",
+      "updated": "2025-07-09T20:04:21.944Z",
       "description": "Tasks for master context"
     }
   }
