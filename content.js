@@ -36,6 +36,14 @@
           chatContainer.style.display = isVisible ? 'block' : 'none';
         });
         
+        // Load and apply position preference
+        chrome.storage.local.get(['chatPosition'], (result) => {
+          const position = result.chatPosition || 'bottom-right';
+          if (window.ChatEvents && window.ChatEvents.applyPositionClass) {
+            window.ChatEvents.applyPositionClass(chatContainer, position);
+          }
+        });
+        
         // Load existing conversation history for new tabs
         chrome.runtime.sendMessage({
           type: 'GET_CONVERSATION',

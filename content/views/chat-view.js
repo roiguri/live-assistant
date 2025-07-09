@@ -55,9 +55,6 @@ window.ChatView = (function() {
                     <button class="chat-send" title="Send message">
                         <span>⮜</span>
                     </button>
-                    <div class="drag-handle" title="Drag to move">
-                        <span>⋮⋮</span>
-                    </div>
                 </div>
             </div>
         `;

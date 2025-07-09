@@ -5,6 +5,7 @@
   // General tab elements
   const apiKeyInput = document.getElementById('apiKey');
   const chatVisibleToggle = document.getElementById('chatVisible');
+  const chatPositionSelect = document.getElementById('chatPosition');
   const testBtn = document.getElementById('testBtn');
   const statusDiv = document.getElementById('status');
   const form = document.getElementById('settingsForm');
@@ -28,6 +29,7 @@
   form.addEventListener('submit', handleSave);
   testBtn.addEventListener('click', handleTest);
   chatVisibleToggle.addEventListener('change', handleToggleChange);
+  chatPositionSelect.addEventListener('change', handlePositionChange);
   
   // Tab management functions
   function setupTabs() {
@@ -96,6 +98,14 @@
           chatVisibleToggle.checked = true; // Default to visible on error
       }
       
+      // Load chat position setting (default to 'bottom-right')
+      try {
+          const result = await chrome.storage.local.get(['chatPosition']);
+          chatPositionSelect.value = result.chatPosition || 'bottom-right';
+      } catch (error) {
+          chatPositionSelect.value = 'bottom-right'; // Default to bottom-right on error
+      }
+      
       // Load custom instructions
       if (PromptManager && customInstructionsInput) {
           try {
@@ -106,6 +116,49 @@
               showStatus('Failed to load custom instructions', 'error');
           }
       }
+  }
+  
+  // Handle position change
+  async function handlePositionChange() {
+      const selectedPosition = chatPositionSelect.value;
+      
+      try {
+          // Save position preference
+          await chrome.storage.local.set({ chatPosition: selectedPosition });
+          
+          // Notify background script to update all tabs
+          chrome.runtime.sendMessage({
+              type: 'POSITION_UPDATE',
+              position: selectedPosition
+          }).catch(() => {
+              // Ignore if background script not ready
+          });
+          
+          showStatus(`Position changed to ${getPositionDisplayName(selectedPosition)}`, 'success');
+          
+      } catch (error) {
+          showStatus('Failed to update chat position', 'error');
+          // Revert selection on error
+          try {
+              const result = await chrome.storage.local.get(['chatPosition']);
+              chatPositionSelect.value = result.chatPosition || 'bottom-right';
+          } catch (err) {
+              chatPositionSelect.value = 'bottom-right';
+          }
+      }
+  }
+  
+  // Helper function to get display name for position
+  function getPositionDisplayName(position) {
+      const displayNames = {
+          'bottom-right': 'Bottom Right',
+          'bottom-center': 'Bottom Center',
+          'bottom-left': 'Bottom Left',
+          'top-right': 'Top Right',
+          'top-center': 'Top Center',
+          'top-left': 'Top Left'
+      };
+      return displayNames[position] || position;
   }
   
   // Save API key

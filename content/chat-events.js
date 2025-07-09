@@ -7,7 +7,6 @@ window.ChatEvents = (function() {
     setupMenuActions(container);
     setupMessageEvents(container);
     setupMinimizeButton(container);
-    setupDragEvents(container);
     MenuView.setupClickOutside(container);
     setupConnectionMonitoring(container);
     setupConnectionStateObservers(container);
@@ -117,103 +116,6 @@ window.ChatEvents = (function() {
     }
   }
   
-  function setupDragEvents(container) {
-    const dragHandle = container.querySelector('.drag-handle');
-    let isDragging = false;
-    let dragOffset = { x: 0, y: 0 };
-
-    
-      
-    // Add global mouse event listeners when drag starts
-    function addDragListeners() {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', endDrag);
-      document.addEventListener('mouseleave', endDrag);
-    }
-    
-    // Start drag on drag handle mousedown
-    dragHandle.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      isDragging = true;
-      
-      const rect = container.getBoundingClientRect();
-      dragOffset.x = e.clientX - rect.left;
-      dragOffset.y = e.clientY - rect.top;
-      
-      // Visual feedback
-      document.body.style.cursor = 'grabbing';
-      document.body.style.userSelect = 'none';
-      dragHandle.style.opacity = '0.8';
-      dragHandle.style.transform = 'scale(1.1)';
-      
-      // Hide menu during drag
-      MenuView.updateMenuForDrag(container, true);
-
-      // Add global event listeners
-      addDragListeners();
-    });
-    
-    // Handle drag movement
-    function handleMouseMove(e) {
-      if (!isDragging) return;
-      
-      e.preventDefault();
-      e.stopPropagation();
-      
-      let newX = e.clientX - dragOffset.x;
-      let newY = e.clientY - dragOffset.y;
-      
-      // Keep within viewport bounds
-      const containerRect = container.getBoundingClientRect();
-      const maxX = window.innerWidth - containerRect.width;
-      const maxY = window.innerHeight - containerRect.height;
-      
-      newX = Math.max(20, Math.min(newX, maxX - 20));
-      newY = Math.max(20, Math.min(newY, maxY - 20));
-      
-      container.style.left = newX + 'px';
-      container.style.top = newY + 'px';
-      container.style.right = 'auto';
-      container.style.bottom = 'auto';
-    };
-    
-    // End drag on mouseup OR mouseleave
-    function endDrag() {
-      if (isDragging) {
-        isDragging = false;
-        
-        // Reset visual feedback
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        const dragHandle = container.querySelector('.drag-handle');
-        if (dragHandle) {
-          dragHandle.style.opacity = '';
-          dragHandle.style.transform = '';
-        }
-
-        // Remove event listeners
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', endDrag);
-        document.removeEventListener('mouseleave', endDrag);
-      }
-    }
-    
-    // Hover effects for drag handle
-    dragHandle.addEventListener('mouseenter', () => {
-      if (!isDragging) {
-        dragHandle.style.opacity = '1';
-        dragHandle.style.transform = 'scale(1.05)';
-      }
-    });
-    
-    dragHandle.addEventListener('mouseleave', () => {
-      if (!isDragging) {
-        dragHandle.style.opacity = '';
-        dragHandle.style.transform = '';
-      }
-    });
-  }
   
   function updateSendButtonState(container) {
     const input = container.querySelector('.chat-input');
@@ -318,6 +220,10 @@ window.ChatEvents = (function() {
         break;
       case 'UI_STATE_UPDATE':
         handleUIStateUpdate(container, message.uiState);
+        sendResponse({ success: true });
+        break;
+      case 'POSITION_UPDATE':
+        handlePositionUpdate(container, message.position);
         sendResponse({ success: true });
         break;
     }
@@ -501,6 +407,34 @@ window.ChatEvents = (function() {
       window.ChatView.updateState(container);
     }
   }
+  
+  function handlePositionUpdate(container, position) {
+    // Apply the new position class to the chat container
+    applyPositionClass(container, position);
+  }
+  
+  // Helper function to manage position classes
+  function applyPositionClass(container, position) {
+    if (!container) return;
+    
+    // Remove all existing position classes
+    const positionClasses = [
+      'position-bottom-right',
+      'position-bottom-left', 
+      'position-top-right',
+      'position-top-left',
+      'position-bottom-center',
+      'position-top-center'
+    ];
+    
+    positionClasses.forEach(cls => {
+      container.classList.remove(cls);
+    });
+    
+    // Apply the new position class
+    const newClass = `position-${position}`;
+    container.classList.add(newClass);
+  }
 
   function updateChatDisplay(container, messages) {
     const messagesArea = container.querySelector('.chat-messages');
@@ -539,7 +473,8 @@ window.ChatEvents = (function() {
   // Public API
   return {
     setupEventListeners,
-    updateChatDisplay
+    updateChatDisplay,
+    applyPositionClass
   };
   
 })();

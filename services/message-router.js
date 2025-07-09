@@ -158,6 +158,21 @@ globalThis.MessageRouter = class MessageRouter {
             }
             return true; // Keep response channel open for async operation
         });
+        
+        // POSITION_UPDATE: Broadcast position changes to all tabs
+        // This relays position updates from popup to all content scripts
+        this.registerHandler('POSITION_UPDATE', (message, sender, sendResponse) => {
+            this.errorHandler.debug('MessageRouter', 'POSITION_UPDATE received', {
+                position: message.position
+            });
+            
+            this.broadcastToAllTabs({
+                type: 'POSITION_UPDATE',
+                position: message.position
+            });
+            
+            sendResponse({ success: true });
+        });
     }
 
     registerHandler(messageType, handler) {

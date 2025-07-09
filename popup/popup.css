@@ -76,7 +76,8 @@ label {
 
 input[type="password"], 
 input[type="text"],
-textarea {
+textarea,
+select {
     width: 100%;
     padding: 10px 12px;
     border: 1px solid #ddd;
@@ -85,6 +86,7 @@ textarea {
     box-sizing: border-box;
     transition: border-color 0.2s;
     font-family: inherit;
+    background: white;
 }
 
 textarea {
@@ -93,10 +95,28 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
     outline: none;
     border-color: #007AFF;
     box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.1);
+}
+
+/* Custom select dropdown styling */
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path fill="%23666" d="M6 8L0 2h12z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px 8px;
+    padding-right: 40px;
+    cursor: pointer;
+}
+
+select:focus {
+    background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path fill="%23007AFF" d="M6 8L0 2h12z"/></svg>');
 }
 
 /* Character Counter */

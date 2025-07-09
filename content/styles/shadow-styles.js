@@ -8,8 +8,6 @@ window.ShadowStyles = (function() {
 
 #assistant-chat {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
   width: 280px;
   background: white;
   border: 1px solid #e0e0e0;
@@ -20,6 +18,39 @@ window.ShadowStyles = (function() {
   font-size: 14px;
   overflow: hidden;
   transition: all 0.3s ease;
+}
+
+/* Position classes */
+#assistant-chat.position-bottom-right {
+  bottom: 20px;
+  right: 20px;
+}
+
+#assistant-chat.position-bottom-left {
+  bottom: 20px;
+  left: 20px;
+}
+
+#assistant-chat.position-top-right {
+  top: 20px;
+  right: 20px;
+}
+
+#assistant-chat.position-top-left {
+  top: 20px;
+  left: 20px;
+}
+
+#assistant-chat.position-bottom-center {
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+#assistant-chat.position-top-center {
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 p {
@@ -380,43 +411,6 @@ p {
   transform: none;
 }
 
-/* Drag Handle */
-.drag-handle {
-  background: #f5f5f5;
-  color: #999;
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  cursor: grab;
-  font-size: 12px;
-  transition: all 0.2s ease;
-  width: 24px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-  opacity: 0.7;
-}
-
-.drag-handle:hover {
-  background: #eeeeee;
-  color: #666;
-  border-color: #d0d0d0;
-  opacity: 1;
-  transform: scale(1.05);
-}
-
-.drag-handle:active {
-  cursor: grabbing;
-  background: #e0e0e0;
-  transform: scale(1.1);
-}
-
-.drag-handle span {
-  line-height: 0.8;
-  font-weight: bold;
-  letter-spacing: -1px;
-}
 
 @keyframes pulse {
   from { opacity: 1; }

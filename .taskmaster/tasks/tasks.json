@@ -1,0 +1,125 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Remove Drag-and-Drop Functionality",
+        "description": "Remove all drag-and-drop related code, event listeners, and UI elements from the chat interface",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "COMPLETED: All drag-and-drop functionality has been successfully removed from the chat interface. Removed the setupDragEvents function entirely from content/chat-events.js (lines 120-216), removed the setupDragEvents(container) call from setupEventListeners function (line 10), removed the drag handle div from getChatHTML template in content/views/chat-view.js (lines 58-60), and removed the entire .drag-handle CSS style block from content/styles/shadow-styles.js (lines 383-419). The chat interface no longer shows a drag handle and will not respond to drag gestures.",
+        "testStrategy": "Verify that the drag handle is no longer visible in the chat interface. Test that dragging gestures have no effect on the chat window. Check that no drag-related JavaScript errors occur in the console. Confirm that the chat window remains stable and doesn't respond to mouse drag events.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Remove setupDragEvents function from content/chat-events.js",
+            "description": "Delete the entire setupDragEvents function (lines 120-216)",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Remove setupDragEvents call from setupEventListeners function",
+            "description": "Remove the setupDragEvents(container) call from line 10 in setupEventListeners function",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Remove drag handle div from chat HTML template",
+            "description": "Remove the drag handle div from getChatHTML template in content/views/chat-view.js (lines 58-60)",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Remove drag handle CSS styles",
+            "description": "Remove the entire .drag-handle style block from content/styles/shadow-styles.js (lines 383-419)",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Implement Position Selection UI in Popup",
+        "description": "Add a dropdown menu to the extension popup for selecting predefined chat window positions",
+        "details": "Add a new .form-group section in popup/popup.html within the 'General' tab containing a select element with id 'chatPosition' and six option values: bottom-right, bottom-center, bottom-left, top-right, top-center, top-left. Set 'bottom-right' as the default selected option. Ensure the dropdown follows the existing popup styling conventions and is properly labeled for accessibility.",
+        "testStrategy": "Verify the dropdown appears correctly in the extension popup within the General tab. Test that all six position options are available and selectable. Confirm the dropdown styling matches the existing popup design. Validate that the default 'Bottom Right' option is pre-selected on first load.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Implement Popup Logic for Position Management",
+        "description": "Add JavaScript logic to handle position selection, storage, and communication with content scripts",
+        "details": "In popup/popup.js, add a reference to the #chatPosition select element. Modify loadSavedSettings to retrieve the saved position from chrome.storage.local with 'bottom-right' as fallback. Add a change event listener to the dropdown that saves the selected value to chrome.storage.local using key 'chatPosition'. Send a message to the background script with type 'POSITION_UPDATE' and the new position value. Implement error handling for storage operations and message passing.",
+        "testStrategy": "Test that selecting a position in the popup saves the value to chrome.storage.local. Verify that the saved position is correctly loaded and displayed when reopening the popup. Confirm that position changes trigger messages to the background script. Test error handling for storage failures and message passing issues.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Update CSS Styles for Position Classes",
+        "description": "Modify shadow-styles.js to remove default positioning and add new position-specific CSS classes",
+        "details": "Remove all default positioning properties (bottom, right, left, top) from the #assistant-chat selector in content/styles/shadow-styles.js. Add six new CSS classes: .position-bottom-right, .position-bottom-left, .position-top-right, .position-top-left, .position-bottom-center, and .position-top-center. Corner positions use 20px margins from edges. Center positions use 50% left positioning with transform: translateX(-50%) for horizontal centering. Ensure all classes maintain the existing width and z-index properties.",
+        "testStrategy": "Verify that the #assistant-chat element has no default positioning after the update. Test that each position class correctly positions the chat window in the expected screen location. Confirm that center positions are properly centered horizontally. Validate that positioning works correctly across different screen sizes and resolutions.",
+        "priority": "medium",
+        "dependencies": [
+          1
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement Position Application in Content Script",
+        "description": "Add logic to apply position classes to the chat container and handle position updates",
+        "details": "In content.js, modify the chat initialization to retrieve the saved position from chrome.storage.local with 'bottom-right' as default. Apply the corresponding position class (position-{value}) to the chatContainer element. Add a chrome.runtime.onMessage listener to handle 'POSITION_UPDATE' messages. When received, remove all existing position classes and apply the new position class. Implement a helper function to manage position class switching efficiently. Ensure the position is applied immediately after chat container creation.",
+        "testStrategy": "Test that the chat window appears in the correct position when a page loads. Verify that position changes from the popup immediately update the chat window location. Confirm that only one position class is applied at a time. Test position persistence across page reloads and different tabs.",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Implement Background Script Message Relaying",
+        "description": "Add message handling in background script to broadcast position updates to all tabs",
+        "details": "In background.js, add a new case to the existing chrome.runtime.onMessage listener to handle 'POSITION_UPDATE' messages. When received, use chrome.tabs.query to get all tabs and broadcast the position update to each tab's content script using chrome.tabs.sendMessage. Include error handling for tabs that may not have the content script loaded. Ensure the message relay preserves the original position value and message structure.",
+        "testStrategy": "Test that changing the position in one tab updates the chat window position in all other open tabs. Verify that the background script correctly relays messages to all tabs with the extension. Confirm that tabs without the content script don't cause errors. Test with multiple tabs open and verify consistent position updates across all instances.",
+        "priority": "medium",
+        "dependencies": [
+          5
+        ],
+        "status": "done",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-07-09T17:30:53.237Z",
+      "updated": "2025-07-09T18:29:24.002Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
