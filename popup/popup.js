@@ -6,6 +6,7 @@
   const apiKeyInput = document.getElementById('apiKey');
   const chatVisibleToggle = document.getElementById('chatVisible');
   const chatPositionSelect = document.getElementById('chatPosition');
+  const modelSelectionSelect = document.getElementById('modelSelection');
   const testBtn = document.getElementById('testBtn');
   const statusDiv = document.getElementById('status');
   const form = document.getElementById('settingsForm');
@@ -30,6 +31,7 @@
   testBtn.addEventListener('click', handleTest);
   chatVisibleToggle.addEventListener('change', handleToggleChange);
   chatPositionSelect.addEventListener('change', handlePositionChange);
+  modelSelectionSelect.addEventListener('change', handleModelChange);
   
   // Tab management functions
   function setupTabs() {
@@ -104,6 +106,17 @@
           chatPositionSelect.value = result.chatPosition || 'bottom-right';
       } catch (error) {
           chatPositionSelect.value = 'bottom-right'; // Default to bottom-right on error
+      } finally {
+          chatPositionSelect.classList.remove('loading');
+      }
+      
+      try {
+          const result = await chrome.storage.local.get(['selectedModel']);
+          modelSelectionSelect.value = result.selectedModel || 'gemini-2.0-flash';
+      } catch (error) {
+          modelSelectionSelect.value = 'gemini-2.0-flash'; // Default to gemini-2.0-flash on error
+      } finally {
+          modelSelectionSelect.classList.remove('loading');
       }
       
       // Load custom instructions
@@ -159,6 +172,32 @@
           'top-left': 'Top Left'
       };
       return displayNames[position] || position;
+  }
+  
+  async function handleModelChange() {
+      const selectedModel = modelSelectionSelect.value;
+      
+      try {
+          await chrome.storage.local.set({ selectedModel: selectedModel });
+          
+          chrome.runtime.sendMessage({
+              type: 'MODEL_CHANGED',
+              model: selectedModel
+          }).catch(() => {
+              // Ignore if background script not ready
+          });
+          
+          showStatus('Model updated. Reconnecting...', 'info');
+          
+      } catch (error) {
+          showStatus('Failed to update model selection', 'error');
+          try {
+              const result = await chrome.storage.local.get(['selectedModel']);
+              modelSelectionSelect.value = result.selectedModel || 'gemini-2.0-flash';
+          } catch (err) {
+              modelSelectionSelect.value = 'gemini-2.0-flash';
+          }
+      }
   }
   
   // Save API key

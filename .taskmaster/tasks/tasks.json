@@ -9,7 +9,7 @@
         "testStrategy": "Verify the dropdown appears correctly in the extension popup UI, displays all three model options, has proper styling consistent with existing form elements, and is accessible via keyboard navigation. Test in multiple browsers to ensure consistent rendering.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -22,7 +22,7 @@
         "dependencies": [
           1
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -134,7 +134,7 @@
     ],
     "metadata": {
       "created": "2025-07-09T17:30:53.237Z",
-      "updated": "2025-07-09T20:04:21.944Z",
+      "updated": "2025-07-09T20:29:27.465Z",
       "description": "Tasks for master context"
     }
   }
