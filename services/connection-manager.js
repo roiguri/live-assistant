@@ -163,7 +163,8 @@ globalThis.ConnectionManager = class ConnectionManager {
           
           // Send setup message
           const systemPrompt = await this.getCombinedSystemPrompt();
-          const setupMessage = this.geminiClient.createSetupMessage(systemPrompt);
+          const selectedModel = await this.getSelectedModel();
+          const setupMessage = this.geminiClient.createSetupMessage(systemPrompt, selectedModel);
           
           if (this.ws && this.ws.readyState === globalThis.WebSocket.OPEN) {
               this.ws.send(JSON.stringify(setupMessage));
@@ -610,6 +611,19 @@ globalThis.ConnectionManager = class ConnectionManager {
       } catch (error) {
           this.errorHandler.handleStorageError(error, 'get custom prompt');
           return this._getDefaultSystemPrompt();
+      }
+  }
+
+  async getSelectedModel() {
+      try {
+          const result = await chrome.storage.local.get(['selectedModel']);
+          const selectedModel = result.selectedModel || 'gemini-2.0-flash-live-001';
+          this.errorHandler.debug('Connection', `Retrieved model: ${selectedModel}`);
+          return selectedModel;
+      } catch (error) {
+          this.errorHandler.handleStorageError(error, 'get selected model');
+          this.errorHandler.debug('Connection', 'Falling back to default model: gemini-2.0-flash-live-001');
+          return 'gemini-2.0-flash-live-001';
       }
   }
 

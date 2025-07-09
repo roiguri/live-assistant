@@ -114,12 +114,12 @@
       
       try {
           const result = await chrome.storage.local.get(['selectedModel']);
-          const savedModel = result.selectedModel || 'gemini-2.0-flash';
+          const savedModel = result.selectedModel || 'gemini-2.0-flash-live-001';
           modelSelectionSelect.value = savedModel;
           modelSelectionSelect.dataset.currentValue = savedModel;
       } catch (error) {
-          modelSelectionSelect.value = 'gemini-2.0-flash'; // Default to gemini-2.0-flash on error
-          modelSelectionSelect.dataset.currentValue = 'gemini-2.0-flash';
+          modelSelectionSelect.value = 'gemini-2.0-flash-live-001'; // Default to gemini-2.0-flash-live-001 on error
+          modelSelectionSelect.dataset.currentValue = 'gemini-2.0-flash-live-001';
       } finally {
           modelSelectionSelect.classList.remove('loading');
           saveModelBtn.disabled = true;
@@ -182,7 +182,7 @@
   
   function handleModelSelectionChange() {
       const selectedModel = modelSelectionSelect.value;
-      const currentModel = modelSelectionSelect.dataset.currentValue || 'gemini-2.0-flash';
+      const currentModel = modelSelectionSelect.dataset.currentValue || 'gemini-2.0-flash-live-001';
       
       saveModelBtn.disabled = (selectedModel === currentModel);
   }
@@ -212,11 +212,11 @@
           // Revert to previous selection on error
           try {
               const result = await chrome.storage.local.get(['selectedModel']);
-              modelSelectionSelect.value = result.selectedModel || 'gemini-2.0-flash';
-              modelSelectionSelect.dataset.currentValue = result.selectedModel || 'gemini-2.0-flash';
+              modelSelectionSelect.value = result.selectedModel || 'gemini-2.0-flash-live-001';
+              modelSelectionSelect.dataset.currentValue = result.selectedModel || 'gemini-2.0-flash-live-001';
           } catch (err) {
-              modelSelectionSelect.value = 'gemini-2.0-flash';
-              modelSelectionSelect.dataset.currentValue = 'gemini-2.0-flash';
+              modelSelectionSelect.value = 'gemini-2.0-flash-live-001';
+              modelSelectionSelect.dataset.currentValue = 'gemini-2.0-flash-live-001';
           }
       } finally {
           saveModelBtn.textContent = 'Save Model Selection';
