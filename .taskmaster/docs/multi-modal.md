@@ -1,0 +1,36 @@
+Product Requirements Document (PRD): Model Selection Feature1. IntroductionThis document outlines the plan to implement a model selection feature within the Live Assistant Chrome extension. Currently, the extension uses a hardcoded Gemini model (gemini-2.0-flash-exp) [cite: roiguri/live-assistant/live-assistant-eb27e869f2d65fe0766ab8914574d533929defcf/services/gemini-client.js]. This new feature will empower users to choose from a predefined list of compatible Gemini models, allowing them to balance between stability, features, and performance according to their needs.2. Objectives & GoalsPrimary Objective: Allow users to select a Gemini model from a predefined list in the extension's popup.Secondary Objective: Ensure the user's model choice is saved and persists across browser sessions.Goal: Automatically reconnect to the Gemini API with the newly selected model upon change, providing a seamless transition for the user.3. Target Users & RolesTarget Audience: All users of the Live Assistant extension.User Role: End-user configuring their personal preferences for the AI's performance and capabilities.4. Core Features for MVPModel Setting: A new dropdown menu will be added to the "General" tab of the extension popup with the following options:gemini-2.0-flash (Default)gemini-2.0-flash-live-001gemini-live-2.5-flash-previewPersistence: The selected model will be saved in the user's local storage.Dynamic Reconnection: When a user selects a new model, the connection to the Gemini API will be reset and re-established using the chosen model.5. Future ScopeDynamically fetching the list of available models from the Gemini API.Adding tooltips or descriptions for each model to explain its features and ideal use cases.Allowing advanced users to input a custom model name.6. User JourneyThe user clicks the Live Assistant extension icon to open the popup.In the "General" tab, the user sees a new "Model" dropdown, with gemini-2.0-flash selected by default.The user clicks the dropdown and selects a different model (e.g., gemini-live-2.5-flash-preview).The selection is automatically saved, and a status message confirms the change.The background script is notified, which triggers the ConnectionManager to disconnect and reconnect to the Gemini API using the new model.The chat interface's connection status indicator reflects the reconnection process.7. Tech StackThe implementation will utilize the existing tech stack, primarily modifying:Frontend: HTML, CSS, and JavaScript for the extension popup [cite: roiguri/live-assistant/live-assistant-eb27e869f2d65fe0766ab8914574d533929defcf/popup/popup.html, roiguri/live-assistant/live-assistant-eb27e869f2d65fe0766ab8914574d533929defcf/popup/popup.js, roiguri/live-assistant/live-assistant-eb27e869f2d65fe0766ab8914574d533929defcf/popup/popup.css].Backend (Extension Services): The ConnectionManager and GeminiClient services will be updated to handle the dynamic model selection [cite: roiguri/live-assistant/live-assistant-eb27e869f2d65fe0766ab8914574d533929defcf/services/connection-manager.js, roiguri/live-assistant/live-assistant-eb27e869f2d65fe0766ab8914574d533929defcf/services/gemini-client.js].Storage: chrome.storage.local will be used to persist the user's model choice.Implementation Plan1. ArchitectureThe following files will be modified or added to implement the model selection feature:/
+├── popup/
+|   ├── popup.html             # Add HTML for the model selection dropdown
+|   └── popup.js               # Add logic to save the selected model and notify background
+|
+└── services/
+    ├── connection-manager.js    # Fetch the selected model from storage
+    └── gemini-client.js         # Use the selected model in the API setup message
+2. Step-by-Step ImplementationStep 1: Modify the Popup UIFile to Edit: popup/popup.htmlAction: Add a new .form-group for the model selection dropdown within the "General" tab, similar to the "Chat Position" selector.<div class="form-group">
+  <label for="modelSelection">AI Model</label>
+  <select id="modelSelection">
+    <option value="gemini-2.0-flash">Gemini 2.0 Flash (Default)</option>
+    <option value="gemini-2.0-flash-live-001">Gemini 2.0 Flash Live</option>
+    <option value="gemini-live-2.5-flash-preview">Gemini 2.5 Flash Preview</option>
+  </select>
+</div>
+Success Metric: The new "AI Model" dropdown appears correctly in the extension popup.Step 2: Implement Popup LogicFile to Edit: popup/popup.jsActions:Get a reference to the new #modelSelection element.In loadSavedSettings, load the saved model from chrome.storage.local and set the dropdown's value. Use gemini-2.0-flash as the default.Add a change event listener to the #modelSelection dropdown. When the model is changed:Save the new value to chrome.storage.local with the key selectedModel.Send a message of type MODEL_CHANGED to the background script.Show a status message like "Model updated. Reconnecting..."Success Metric: Selecting a model in the popup saves the value to storage and triggers a MODEL_CHANGED message to the background script.Step 3: Update Background Script and Connection ManagerFile to Edit: background.jsAction: Add a new handler in the chrome.runtime.onMessage listener for the MODEL_CHANGED type. This handler should call connectionManager.resetContext(). This reuses the existing logic for restarting the connection.File to Edit: services/connection-manager.jsAction:Create a new async method getSelectedModel that retrieves the model name from chrome.storage.local, defaulting to gemini-2.0-flash.In the sendSetupAndWait method, call getSelectedModel and pass the result to geminiClient.createSetupMessage.Success Metric: The ConnectionManager successfully retrieves the user's selected model from storage and uses it to initiate the connection.Step 4: Update the Gemini ClientFile to Edit: services/gemini-client.jsAction: Modify the createSetupMessage function to accept the model name as an argument and use it in the setup payload.// Before
+createSetupMessage(systemPrompt) {
+    return {
+        setup: {
+            model: "models/gemini-2.0-flash-exp",
+            // ...
+        }
+    };
+}
+
+// After
+createSetupMessage(systemPrompt, modelName = 'gemini-2.0-flash') {
+    return {
+        setup: {
+            model: `models/${modelName}`,
+            // ...
+        }
+    };
+}
+Success Metric: The GeminiClient correctly constructs the setup message with the dynamically provided model name.3. Important Best PracticesDefault Fallback: Always provide a default model (gemini-2.0-flash) when retrieving the setting from storage. This ensures the extension works correctly for first-time users or if storage becomes corrupted.User Feedback: Clearly inform the user that changing the model will trigger a reconnection. The status message in the popup and the connection dot in the chat interface will handle this.Separation of Concerns: The logic is well-distributed: the popup handles user interaction, the connection manager handles fetching the setting, and the Gemini client is only responsible for formatting the message. This makes the code easier to maintain.

@@ -119,6 +119,30 @@ select:focus {
     background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path fill="%23007AFF" d="M6 8L0 2h12z"/></svg>');
 }
 
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+    position: relative;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #007AFF;
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 /* Character Counter */
 .char-counter {
     text-align: right;
@@ -194,6 +218,12 @@ button {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
+}
+
+.model-save-btn {
+    width: 100%;
+    margin-top: 8px;
+    flex: none;
 }
 
 .btn-primary {

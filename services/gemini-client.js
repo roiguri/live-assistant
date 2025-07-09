@@ -7,10 +7,10 @@ globalThis.GeminiClient = class GeminiClient {
     }
 
     // Format setup message for Gemini Live API
-    createSetupMessage(systemPrompt) {
+    createSetupMessage(systemPrompt, modelName = 'gemini-2.0-flash-live-001') {
         return {
             setup: {
-                model: "models/gemini-2.0-flash-exp",
+                model: `models/${modelName}`,
                 generationConfig: {
                     responseModalities: ["TEXT"]
                 },

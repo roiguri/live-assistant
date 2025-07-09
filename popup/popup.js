@@ -6,6 +6,8 @@
   const apiKeyInput = document.getElementById('apiKey');
   const chatVisibleToggle = document.getElementById('chatVisible');
   const chatPositionSelect = document.getElementById('chatPosition');
+  const modelSelectionSelect = document.getElementById('modelSelection');
+  const saveModelBtn = document.getElementById('saveModelBtn');
   const testBtn = document.getElementById('testBtn');
   const statusDiv = document.getElementById('status');
   const form = document.getElementById('settingsForm');
@@ -30,6 +32,8 @@
   testBtn.addEventListener('click', handleTest);
   chatVisibleToggle.addEventListener('change', handleToggleChange);
   chatPositionSelect.addEventListener('change', handlePositionChange);
+  modelSelectionSelect.addEventListener('change', handleModelSelectionChange);
+  saveModelBtn.addEventListener('click', handleSaveModel);
   
   // Tab management functions
   function setupTabs() {
@@ -104,6 +108,21 @@
           chatPositionSelect.value = result.chatPosition || 'bottom-right';
       } catch (error) {
           chatPositionSelect.value = 'bottom-right'; // Default to bottom-right on error
+      } finally {
+          chatPositionSelect.classList.remove('loading');
+      }
+      
+      try {
+          const result = await chrome.storage.local.get(['selectedModel']);
+          const savedModel = result.selectedModel || 'gemini-2.0-flash-live-001';
+          modelSelectionSelect.value = savedModel;
+          modelSelectionSelect.dataset.currentValue = savedModel;
+      } catch (error) {
+          modelSelectionSelect.value = 'gemini-2.0-flash-live-001'; // Default to gemini-2.0-flash-live-001 on error
+          modelSelectionSelect.dataset.currentValue = 'gemini-2.0-flash-live-001';
+      } finally {
+          modelSelectionSelect.classList.remove('loading');
+          saveModelBtn.disabled = true;
       }
       
       // Load custom instructions
@@ -159,6 +178,50 @@
           'top-left': 'Top Left'
       };
       return displayNames[position] || position;
+  }
+  
+  function handleModelSelectionChange() {
+      const selectedModel = modelSelectionSelect.value;
+      const currentModel = modelSelectionSelect.dataset.currentValue || 'gemini-2.0-flash-live-001';
+      
+      saveModelBtn.disabled = (selectedModel === currentModel);
+  }
+  
+  async function handleSaveModel() {
+      const selectedModel = modelSelectionSelect.value;
+      
+      try {
+          saveModelBtn.disabled = true;
+          saveModelBtn.textContent = 'Saving...';
+          
+          await chrome.storage.local.set({ selectedModel: selectedModel });
+          
+          chrome.runtime.sendMessage({
+              type: 'MODEL_CHANGED',
+              model: selectedModel
+          }).catch(() => {
+              // Ignore if background script not ready
+          });
+          
+          modelSelectionSelect.dataset.currentValue = selectedModel;
+          
+          showStatus('Model updated. Reconnecting...', 'info');
+          
+      } catch (error) {
+          showStatus('Failed to update model selection', 'error');
+          // Revert to previous selection on error
+          try {
+              const result = await chrome.storage.local.get(['selectedModel']);
+              modelSelectionSelect.value = result.selectedModel || 'gemini-2.0-flash-live-001';
+              modelSelectionSelect.dataset.currentValue = result.selectedModel || 'gemini-2.0-flash-live-001';
+          } catch (err) {
+              modelSelectionSelect.value = 'gemini-2.0-flash-live-001';
+              modelSelectionSelect.dataset.currentValue = 'gemini-2.0-flash-live-001';
+          }
+      } finally {
+          saveModelBtn.textContent = 'Save Model Selection';
+          saveModelBtn.disabled = true; // Disable after saving
+      }
   }
   
   // Save API key

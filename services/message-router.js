@@ -173,6 +173,29 @@ globalThis.MessageRouter = class MessageRouter {
             
             sendResponse({ success: true });
         });
+
+        // MODEL_CHANGED: Handle model selection changes from popup
+        // This clears conversation and resets UI state for a fresh start with the new model
+        this.registerHandler('MODEL_CHANGED', (message, sender, sendResponse) => {
+            this.errorHandler.info('MessageRouter', 'MODEL_CHANGED received', {
+                model: message.model
+            });
+            
+            if (this.conversationManager) {
+                try {
+                    // Clear conversation history, reset UI state, and reset Gemini context
+                    this.conversationManager.clearConversation();
+                    this.errorHandler.info('MessageRouter', 'Conversation cleared and context reset for model change');
+                    sendResponse({ success: true });
+                } catch (error) {
+                    this.errorHandler.error('MessageRouter', 'MODEL_CHANGED failed to clear conversation', error.message);
+                    sendResponse({ success: false, error: error.message });
+                }
+            } else {
+                this.errorHandler.error('MessageRouter', 'MODEL_CHANGED - no conversation manager available');
+                sendResponse({ success: false, error: 'No conversation manager available' });
+            }
+        });
     }
 
     registerHandler(messageType, handler) {
