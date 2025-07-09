@@ -7,6 +7,7 @@
   const chatVisibleToggle = document.getElementById('chatVisible');
   const chatPositionSelect = document.getElementById('chatPosition');
   const modelSelectionSelect = document.getElementById('modelSelection');
+  const saveModelBtn = document.getElementById('saveModelBtn');
   const testBtn = document.getElementById('testBtn');
   const statusDiv = document.getElementById('status');
   const form = document.getElementById('settingsForm');
@@ -31,7 +32,8 @@
   testBtn.addEventListener('click', handleTest);
   chatVisibleToggle.addEventListener('change', handleToggleChange);
   chatPositionSelect.addEventListener('change', handlePositionChange);
-  modelSelectionSelect.addEventListener('change', handleModelChange);
+  modelSelectionSelect.addEventListener('change', handleModelSelectionChange);
+  saveModelBtn.addEventListener('click', handleSaveModel);
   
   // Tab management functions
   function setupTabs() {
@@ -112,11 +114,15 @@
       
       try {
           const result = await chrome.storage.local.get(['selectedModel']);
-          modelSelectionSelect.value = result.selectedModel || 'gemini-2.0-flash';
+          const savedModel = result.selectedModel || 'gemini-2.0-flash';
+          modelSelectionSelect.value = savedModel;
+          modelSelectionSelect.dataset.currentValue = savedModel;
       } catch (error) {
           modelSelectionSelect.value = 'gemini-2.0-flash'; // Default to gemini-2.0-flash on error
+          modelSelectionSelect.dataset.currentValue = 'gemini-2.0-flash';
       } finally {
           modelSelectionSelect.classList.remove('loading');
+          saveModelBtn.disabled = true;
       }
       
       // Load custom instructions
@@ -174,10 +180,20 @@
       return displayNames[position] || position;
   }
   
-  async function handleModelChange() {
+  function handleModelSelectionChange() {
+      const selectedModel = modelSelectionSelect.value;
+      const currentModel = modelSelectionSelect.dataset.currentValue || 'gemini-2.0-flash';
+      
+      saveModelBtn.disabled = (selectedModel === currentModel);
+  }
+  
+  async function handleSaveModel() {
       const selectedModel = modelSelectionSelect.value;
       
       try {
+          saveModelBtn.disabled = true;
+          saveModelBtn.textContent = 'Saving...';
+          
           await chrome.storage.local.set({ selectedModel: selectedModel });
           
           chrome.runtime.sendMessage({
@@ -187,16 +203,24 @@
               // Ignore if background script not ready
           });
           
+          modelSelectionSelect.dataset.currentValue = selectedModel;
+          
           showStatus('Model updated. Reconnecting...', 'info');
           
       } catch (error) {
           showStatus('Failed to update model selection', 'error');
+          // Revert to previous selection on error
           try {
               const result = await chrome.storage.local.get(['selectedModel']);
               modelSelectionSelect.value = result.selectedModel || 'gemini-2.0-flash';
+              modelSelectionSelect.dataset.currentValue = result.selectedModel || 'gemini-2.0-flash';
           } catch (err) {
               modelSelectionSelect.value = 'gemini-2.0-flash';
+              modelSelectionSelect.dataset.currentValue = 'gemini-2.0-flash';
           }
+      } finally {
+          saveModelBtn.textContent = 'Save Model Selection';
+          saveModelBtn.disabled = true; // Disable after saving
       }
   }
   
