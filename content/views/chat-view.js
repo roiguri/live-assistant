@@ -83,8 +83,6 @@ window.ChatView = (function() {
         }
         // MINIMAL state shows nothing extra (default)
         
-        // Ensure chat stays within viewport bounds after state change
-        ensureWithinViewport(container);
 
         MenuView.positionMenu(container);
         
@@ -153,27 +151,6 @@ window.ChatView = (function() {
         }
     }
     
-    function ensureWithinViewport(container) {
-        const rect = container.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const margin = 20; // Consistent with initial positioning and drag system
-        
-        // Calculate maximum top position that keeps chat fully visible
-        const maxTop = viewportHeight - rect.height - margin;
-        
-        // Only adjust position if chat is actually outside safe bounds
-        if (rect.top < margin) {
-            // Too high - move down to minimum margin
-            container.style.top = margin + 'px';
-            container.style.bottom = 'auto';
-        } else if (rect.bottom > viewportHeight - margin) {
-            // Too low - move up to keep bottom within margin
-            const safeTop = Math.max(margin, maxTop);
-            container.style.top = safeTop + 'px';
-            container.style.bottom = 'auto';
-        }
-        // If chat is within bounds, don't adjust position
-    }
 
     function updateConnectionStatus(container, status, canReconnect = false) {
         const connectionDot = container.querySelector('.connection-dot');
@@ -242,7 +219,6 @@ window.ChatView = (function() {
         getInputValue,
         clearMessagesDOM,
         updateRecentArea,
-        ensureWithinViewport,
         updateConnectionStatus
     };
     

@@ -464,10 +464,6 @@ window.ChatEvents = (function() {
       }
     }
     
-    // Ensure chat stays within viewport after display update
-    if (window.ChatView && window.ChatView.ensureWithinViewport) {
-      window.ChatView.ensureWithinViewport(container);
-    }
   }
   
   // Public API
