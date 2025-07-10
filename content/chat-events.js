@@ -226,6 +226,18 @@ window.ChatEvents = (function() {
         handlePositionUpdate(container, message.position);
         sendResponse({ success: true });
         break;
+      case 'NEW_CHAT':
+        handleNewChat(container);
+        sendResponse({ success: true });
+        break;
+      case 'REFRESH_CONNECTION':
+        handleRefreshConnection(container);
+        sendResponse({ success: true });
+        break;
+      case 'SMART_TOGGLE_FOCUS_CHECK':
+        handleSmartToggleFocusCheck(container);
+        sendResponse({ success: true });
+        break;
     }
   });
 
@@ -464,6 +476,50 @@ window.ChatEvents = (function() {
       }
     }
     
+  }
+  
+  function handleNewChat(container) {
+    // Clear the conversation using ChatController
+    if (ChatController && ChatController.changeState) {
+      ChatController.changeState(container, 'clear-chat');
+    }
+  }
+  
+  
+  function handleRefreshConnection(container) {
+    // Find and programmatically click the refresh button if it exists
+    const refreshButton = container.querySelector('.refresh-connection-btn');
+    if (refreshButton && refreshButton.style.display !== 'none') {
+      refreshButton.click();
+    } else {
+      chrome.runtime.sendMessage({ type: 'MANUAL_RECONNECT' }, (response) => {
+        if (response && response.success) {
+          window.ChatUI.addMessage(container, 'Connection refresh initiated...', 'system');
+        }
+      });
+    }
+  }
+  
+  function handleSmartToggleFocusCheck(container) {
+    // Check if chat input is currently focused (accounting for Shadow DOM)
+    const input = container.querySelector('.chat-input');
+    const shadowRoot = container.getRootNode();
+    const isFocused = input && (
+      document.activeElement === input || 
+      (shadowRoot && shadowRoot.activeElement === input)
+    );
+    
+    if (isFocused) {
+      // Input is focused - close chat
+      chrome.storage.local.set({ chatVisible: false });
+      container.style.display = 'none';
+    } else {
+      // Input is not focused - focus it
+      if (input) {
+        input.focus();
+        input.select(); // Optionally select any existing text
+      }
+    }
   }
   
   // Public API

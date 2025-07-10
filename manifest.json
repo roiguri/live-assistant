@@ -33,24 +33,31 @@
     "commands": {
       "toggle-chat": {
         "suggested_key": {
-          "default": "Ctrl+Shift+L",
-          "mac": "Command+Shift+L"
-        },
-        "description": "Toggle AI chat visibility"
-      },
-      "focus-chat": {
-        "suggested_key": {
           "default": "Ctrl+Shift+F",
           "mac": "Command+Shift+F"
         },
-        "description": "Focus AI chat input"
+        "description": "Toggle: open+focus → focus → close chat"
       },
       "take-screenshot": {
         "suggested_key": {
           "default": "Ctrl+Shift+S",
           "mac": "Command+Shift+S"
         },
-        "description": "Take screenshot and send to AI"
+        "description": "Take screenshot and send"
+      },
+      "new-chat": {
+        "suggested_key": {
+          "default": "Ctrl+Shift+Z",
+          "mac": "Command+Shift+Z"
+        },
+        "description": "Start a new chat"
+      },
+      "refresh-connection": {
+        "suggested_key": {
+          "default": "Ctrl+Shift+Q",
+          "mac": "Command+Shift+Q"
+        },
+        "description": "Refresh connection to service"
       }
     },
     

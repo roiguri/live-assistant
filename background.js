@@ -51,50 +51,41 @@ chrome.commands.onCommand.addListener((command) => {
   errorHandler.info('Shortcuts', `Command triggered: ${command}`);
   
   if (command === 'toggle-chat') {
-    toggleChatVisibilityAcrossAllTabs();
-  } else if (command === 'focus-chat') {
-    focusChatInputAcrossAllTabs();
+    smartToggleChatAcrossAllTabs();
   } else if (command === 'take-screenshot') {
     takeScreenshotAcrossAllTabs();
+  } else if (command === 'new-chat') {
+    newChatAcrossAllTabs();
+  } else if (command === 'refresh-connection') {
+    refreshConnectionAcrossAllTabs();
   }
 });
 
-async function toggleChatVisibilityAcrossAllTabs() {
+// Smart toggle: closed → open, focused → close, open+unfocused → focus
+async function smartToggleChatAcrossAllTabs() {
   try {
     const result = await chrome.storage.local.get(['chatVisible']);
     const currentlyVisible = result.chatVisible !== false;
-    const newVisibility = !currentlyVisible;
     
-    await chrome.storage.local.set({ chatVisible: newVisibility });
-    
-    errorHandler.info('Shortcuts', `Chat visibility toggled: ${newVisibility}`);
-    
-    messageRouter.broadcastToAllTabs({
-      type: 'TOGGLE_CHAT_VISIBILITY',
-      visible: newVisibility
-    });
-  } catch (error) {
-    errorHandler.handleStorageError(error.message, 'toggle chat visibility');
-  }
-}
-
-async function focusChatInputAcrossAllTabs() {
-  try {
-    const result = await chrome.storage.local.get(['chatVisible']);
-    const isVisible = result.chatVisible !== false;
-    
-    if (!isVisible) {
+    if (!currentlyVisible) {
+      // Chat is closed - open and focus
       await chrome.storage.local.set({ chatVisible: true });
+      errorHandler.info('Shortcuts', 'Smart toggle: opening chat and focusing input');
+      
+      messageRouter.broadcastToAllTabs({
+        type: 'TOGGLE_CHAT_VISIBILITY',
+        visible: true
+      });
+    } else {
+      // Chat is open - check focus state and act accordingly
+      errorHandler.info('Shortcuts', 'Smart toggle: checking focus state');
+      
+      messageRouter.broadcastToAllTabs({
+        type: 'SMART_TOGGLE_FOCUS_CHECK'
+      });
     }
-    
-    errorHandler.debug('Shortcuts', 'Focusing chat input');
-    
-    messageRouter.broadcastToAllTabs({
-      type: isVisible ? 'FOCUS_CHAT_INPUT' : 'TOGGLE_CHAT_VISIBILITY',
-      visible: true
-    });
   } catch (error) {
-    errorHandler.handleStorageError(error.message, 'focus chat');
+    errorHandler.handleStorageError(error.message, 'smart toggle chat');
   }
 }
 
@@ -127,5 +118,30 @@ async function takeScreenshotAcrossAllTabs() {
     
   } catch (error) {
     errorHandler.handleScreenshotError(error.message);
+  }
+}
+
+async function newChatAcrossAllTabs() {
+  try {
+    errorHandler.info('Shortcuts', 'Starting new chat conversation');
+    
+    messageRouter.broadcastToAllTabs({
+      type: 'NEW_CHAT'
+    });
+  } catch (error) {
+    errorHandler.handleMessageError(error.message, 'new chat');
+  }
+}
+
+
+async function refreshConnectionAcrossAllTabs() {
+  try {
+    errorHandler.info('Shortcuts', 'Refreshing connection');
+    
+    messageRouter.broadcastToAllTabs({
+      type: 'REFRESH_CONNECTION'
+    });
+  } catch (error) {
+    errorHandler.handleConnectionError(error.message, 'refresh connection');
   }
 }

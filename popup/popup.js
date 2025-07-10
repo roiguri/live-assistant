@@ -2,15 +2,24 @@
 (function() {
   'use strict';
 
-  // General tab elements
-  const apiKeyInput = document.getElementById('apiKey');
+  // Chat tab elements
   const chatVisibleToggle = document.getElementById('chatVisible');
   const chatPositionSelect = document.getElementById('chatPosition');
+  const chatForm = document.getElementById('chatForm');
+  
+  // API tab elements
+  const apiKeyInput = document.getElementById('apiKey');
   const modelSelectionSelect = document.getElementById('modelSelection');
   const saveModelBtn = document.getElementById('saveModelBtn');
   const testBtn = document.getElementById('testBtn');
+  const apiForm = document.getElementById('apiForm');
+  
+  // Shortcuts tab elements
+  const shortcutsList = document.getElementById('shortcuts-list');
+  const customizeShortcutsBtn = document.getElementById('customize-shortcuts');
+  
+  // Common elements
   const statusDiv = document.getElementById('status');
-  const form = document.getElementById('settingsForm');
   
   // Prompts tab elements
   const customInstructionsInput = document.getElementById('customInstructions');
@@ -26,14 +35,17 @@
   loadSavedSettings();
   setupTabs();
   setupPromptHandlers();
+  setupShortcutsTab();
   
   // Event listeners
-  form.addEventListener('submit', handleSave);
-  testBtn.addEventListener('click', handleTest);
-  chatVisibleToggle.addEventListener('change', handleToggleChange);
-  chatPositionSelect.addEventListener('change', handlePositionChange);
-  modelSelectionSelect.addEventListener('change', handleModelSelectionChange);
-  saveModelBtn.addEventListener('click', handleSaveModel);
+  if (chatForm) chatForm.addEventListener('submit', handleChatSave);
+  if (apiForm) apiForm.addEventListener('submit', handleApiSave);
+  if (testBtn) testBtn.addEventListener('click', handleTest);
+  if (chatVisibleToggle) chatVisibleToggle.addEventListener('change', handleToggleChange);
+  if (chatPositionSelect) chatPositionSelect.addEventListener('change', handlePositionChange);
+  if (modelSelectionSelect) modelSelectionSelect.addEventListener('change', handleModelSelectionChange);
+  if (saveModelBtn) saveModelBtn.addEventListener('click', handleSaveModel);
+  if (customizeShortcutsBtn) customizeShortcutsBtn.addEventListener('click', openShortcutsPage);
   
   // Tab management functions
   function setupTabs() {
@@ -54,9 +66,11 @@
           content.classList.toggle('active', content.getAttribute('data-content') === tabName);
       });
       
-      // Load prompt preview when switching to prompts tab
+      // Load content when switching tabs
       if (tabName === 'prompts') {
           updateCharCounter();
+      } else if (tabName === 'shortcuts') {
+          loadShortcuts();
       }
   }
   
@@ -224,8 +238,14 @@
       }
   }
   
-  // Save API key
-  async function handleSave(e) {
+  // Save chat settings
+  async function handleChatSave(e) {
+      e.preventDefault();
+      showStatus('Chat settings saved!', 'success');
+  }
+  
+  // Save API settings
+  async function handleApiSave(e) {
       e.preventDefault();
       
       const apiKey = apiKeyInput.value.trim();
@@ -426,6 +446,54 @@
           await saveInstructions();
           updateCharCounter();
       }
+  }
+  
+  // Shortcuts tab functionality
+  function setupShortcutsTab() {
+      loadShortcuts();
+  }
+  
+  async function loadShortcuts() {
+      if (!shortcutsList) return;
+      
+      try {
+          const commands = await chrome.commands.getAll();
+          
+          shortcutsList.innerHTML = '';
+          
+          commands.forEach(command => {
+              if (command.name === '_execute_action') {
+                  return;
+              }
+              
+              const shortcutItem = document.createElement('div');
+              shortcutItem.className = 'shortcut-item';
+              
+              const description = document.createElement('span');
+              description.className = 'shortcut-desc';
+              description.textContent = command.description || command.name;
+              
+              const keyCombo = document.createElement('span');
+              keyCombo.className = 'shortcut-key';
+              if (command.shortcut) {
+                  keyCombo.textContent = command.shortcut;
+              } else {
+                  keyCombo.textContent = 'Not set';
+                  keyCombo.classList.add('not-set');
+              }
+              
+              shortcutItem.appendChild(description);
+              shortcutItem.appendChild(keyCombo);
+              shortcutsList.appendChild(shortcutItem);
+          });
+          
+      } catch (error) {
+          shortcutsList.innerHTML = '<div class="error">Failed to load shortcuts</div>';
+      }
+  }
+  
+  function openShortcutsPage() {
+      chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
   }
   
 })();

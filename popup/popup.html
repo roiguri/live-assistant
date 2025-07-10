@@ -12,13 +12,15 @@
 
   <!-- Tab Navigation -->
   <div class="tabs">
-    <button class="tab active" data-tab="general">General</button>
+    <button class="tab active" data-tab="chat">Chat</button>
+    <button class="tab" data-tab="api">API</button>
     <button class="tab" data-tab="prompts">Prompts</button>
+    <button class="tab" data-tab="shortcuts">Shortcuts</button>
   </div>
 
-  <!-- General Settings Tab -->
-  <div class="tab-content active" data-content="general">
-    <form id="settingsForm">
+  <!-- Chat Settings Tab -->
+  <div class="tab-content active" data-content="chat">
+    <form id="chatForm">
       <div class="form-group">
         <label for="chatVisible">Chat Interface</label>
         <div class="toggle-container">
@@ -42,7 +44,16 @@
           <option value="top-left">Top Left</option>
         </select>
       </div>
+      
+      <div class="button-group">
+        <button type="submit" id="saveChatBtn" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
 
+  <!-- API Settings Tab -->
+  <div class="tab-content" data-content="api">
+    <form id="apiForm">
       <div class="form-group">
         <label for="modelSelection">Gemini Model</label>
         <select id="modelSelection" class="loading">
@@ -92,6 +103,22 @@
     <div class="button-group">
       <button type="button" id="clearInstructions" class="btn-secondary">Clear</button>
       <button type="button" id="saveInstructions" class="btn-primary">Save</button>
+    </div>
+  </div>
+
+  <!-- Shortcuts Tab -->
+  <div class="tab-content" data-content="shortcuts">
+    <div class="form-group">
+      <label>Keyboard Shortcuts</label>
+      <div class="help-text">
+        View your current keyboard shortcuts. Click "Customize" to modify them in Chrome settings.
+      </div>
+      <div id="shortcuts-list" class="shortcuts-list">
+        <!-- Shortcuts will be dynamically populated here -->
+      </div>
+      <div class="button-group">
+        <button type="button" id="customize-shortcuts" class="btn-primary">Customize Shortcuts</button>
+      </div>
     </div>
   </div>
   
