@@ -518,14 +518,25 @@ describe('MessageRouter', () => {
             messageRouter.setConversationManager(mockConversationManager);
         });
 
-        test('CLEAR_CONVERSATION calls conversationManager.clearConversation', async () => {
+        test('CLEAR_CONVERSATION calls conversationManager.clearConversation with default resetConnection=false', async () => {
             const sendResponse = jest.fn();
             const message = { type: 'CLEAR_CONVERSATION' };
             const sender = { tab: { id: 123 } };
 
             await messageRouter.handleMessage(message, sender, sendResponse);
 
-            expect(mockConversationManager.clearConversation).toHaveBeenCalledWith();
+            expect(mockConversationManager.clearConversation).toHaveBeenCalledWith(false);
+            expect(sendResponse).toHaveBeenCalledWith({ success: true });
+        });
+
+        test('CLEAR_CONVERSATION with resetConnection=true calls clearConversation with true', async () => {
+            const sendResponse = jest.fn();
+            const message = { type: 'CLEAR_CONVERSATION', resetConnection: true };
+            const sender = { tab: { id: 123 } };
+
+            await messageRouter.handleMessage(message, sender, sendResponse);
+
+            expect(mockConversationManager.clearConversation).toHaveBeenCalledWith(true);
             expect(sendResponse).toHaveBeenCalledWith({ success: true });
         });
 
@@ -563,12 +574,12 @@ describe('MessageRouter', () => {
                 mockSendResponse
             );
             
-            expect(mockConversationManager.clearConversation).toHaveBeenCalledTimes(1);
+            expect(mockConversationManager.clearConversation).toHaveBeenCalledWith(false);
             expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
             expect(result).toBe(false);
         });
 
-        test('CLEAR_CONVERSATION handler also triggers Gemini context reset', () => {
+        test('CLEAR_CONVERSATION handler does not trigger Gemini context reset', () => {
             // Setup conversation manager with connection manager
             const mockConnectionManager = {
                 resetContext: jest.fn()
@@ -576,21 +587,14 @@ describe('MessageRouter', () => {
             mockConversationManager.setConnectionManager = jest.fn();
             mockConversationManager.connectionManager = mockConnectionManager;
             
-            // Mock clearConversation to simulate what it actually does
-            mockConversationManager.clearConversation.mockImplementation(() => {
-                if (mockConversationManager.connectionManager) {
-                    mockConversationManager.connectionManager.resetContext();
-                }
-            });
-            
             messageRouter.handleMessage(
                 { type: 'CLEAR_CONVERSATION' },
                 { tab: { id: 1 } },
                 mockSendResponse
             );
             
-            expect(mockConversationManager.clearConversation).toHaveBeenCalledTimes(1);
-            expect(mockConnectionManager.resetContext).toHaveBeenCalledTimes(1);
+            expect(mockConversationManager.clearConversation).toHaveBeenCalledWith(false);
+            expect(mockConnectionManager.resetContext).not.toHaveBeenCalled();
             expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
         });
     });

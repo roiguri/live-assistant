@@ -358,3 +358,291 @@ button {
     border-radius: 8px;
     margin-bottom: 16px;
 }
+
+/* Custom Chat Modes Styles */
+.prompts-view {
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.mode-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.mode-chip {
+    padding: 8px 16px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    background: white;
+    color: #333;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+}
+
+.mode-chip:hover {
+    border-color: #007AFF;
+    background: #f0f8ff;
+    color: #007AFF;
+}
+
+.mode-chip.active-chip {
+    background: #007AFF;
+    color: white;
+    border-color: #007AFF;
+}
+
+.mode-chip.active-chip:hover {
+    background: #0056b3;
+    border-color: #0056b3;
+}
+
+.mode-chip.default-mode {
+    background: #f8f9fa;
+    border-color: #e9ecef;
+    color: #495057;
+}
+
+.mode-chip.default-mode:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.mode-chip.default-mode.active-chip {
+    background: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+/* Mode Management List */
+.modes-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: white;
+}
+
+.mode-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+.mode-item:last-child {
+    border-bottom: none;
+}
+
+.mode-item:hover {
+    background: #f8f9fa;
+}
+
+.mode-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.mode-name {
+    font-weight: 500;
+    color: #333;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+.mode-preview {
+    font-size: 11px;
+    color: #666;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 150px;
+}
+
+.mode-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.mode-action-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.mode-action-btn:hover {
+    background: #f5f5f5;
+    color: #333;
+}
+
+.mode-action-btn.edit-btn:hover {
+    border-color: #007AFF;
+    color: #007AFF;
+}
+
+.mode-action-btn.delete-btn:hover {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
+.modes-list-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+    font-style: italic;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    max-width: 400px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from { transform: translateY(-20px) scale(0.95); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #333;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #666;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.modal-close:hover {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding: 16px 20px;
+    border-top: 1px solid #e0e0e0;
+    background: #f8f9fa;
+}
+
+.modal-footer button {
+    flex: none;
+    min-width: 80px;
+}
+
+/* Form elements within modals */
+.modal-body .form-group {
+    margin-bottom: 20px;
+}
+
+.modal-body .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.modal-body input[type="text"],
+.modal-body textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.mode-chip:focus,
+.mode-action-btn:focus {
+    outline: 2px solid #007AFF;
+    outline-offset: 2px;
+}
+
+@media (max-width: 350px) {
+    .mode-chips {
+        gap: 6px;
+    }
+    
+    .mode-chip {
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+    
+    .modal-content {
+        width: 95%;
+    }
+}

@@ -86,33 +86,95 @@
 
   <!-- Prompts Tab -->
   <div class="tab-content" data-content="prompts">
-    <div class="form-group">
-      <label for="customInstructions">Custom Instructions</label>
-      <textarea 
-        id="customInstructions" 
-        placeholder="Add custom instructions for the AI assistant..."
-        maxlength="2000"
-        rows="4"
-      ></textarea>
-      <div class="char-counter" id="charCounter">0 / 2000</div>
-      <div class="help-text">
-        These instructions will be added to customize the AI's behavior.
+    <div id="prompts-unified-view" class="prompts-view">
+      <div class="form-group">
+        <label>Active Chat Mode</label>
+        <div id="mode-chips" class="mode-chips" role="radiogroup" aria-label="Chat modes">
+          <!-- Mode chips will be dynamically populated here -->
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Manage Custom Modes</label>
+        <div id="modes-list" class="modes-list" role="list" aria-label="Custom modes list">
+          <!-- Mode list items will be dynamically populated here -->
+        </div>
+      </div>
+      
+      <div class="button-group">
+        <button type="button" id="add-mode-btn" class="btn-primary">
+          Add New Mode
+        </button>
       </div>
     </div>
-    
-    <div class="button-group">
-      <button type="button" id="clearInstructions" class="btn-secondary">Clear</button>
-      <button type="button" id="saveInstructions" class="btn-primary">Save</button>
+
+    <div id="mode-editor-modal" class="modal" style="display: none;" role="dialog" aria-labelledby="editor-title" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="editor-title">Add New Mode</h3>
+          <button type="button" id="close-editor-modal" class="modal-close" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="mode-name">Mode Name</label>
+            <input type="text" id="mode-name" placeholder="Enter mode name..." maxlength="100" required>
+            <div class="char-counter" id="name-counter">0 / 100</div>
+          </div>
+          <div class="form-group">
+            <label for="mode-prompt">Custom Instructions</label>
+            <textarea 
+              id="mode-prompt" 
+              placeholder="Enter custom instructions for this mode..."
+              maxlength="2000"
+              rows="6"
+              required
+            ></textarea>
+            <div class="char-counter" id="prompt-counter">0 / 2000</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="cancel-editor-btn" class="btn-secondary">Cancel</button>
+          <button type="button" id="save-mode-btn" class="btn-primary">Save Mode</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="confirmation-modal" class="modal" style="display: none;" role="dialog" aria-labelledby="confirm-title" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="confirm-title">Confirm Mode Switch</h3>
+          <button type="button" id="close-confirm-modal" class="modal-close" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p id="confirm-message">Activating this mode will start a new chat and clear your current conversation. Do you want to continue?</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="cancel-confirm-btn" class="btn-secondary">Cancel</button>
+          <button type="button" id="confirm-switch-btn" class="btn-primary">Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="delete-modal" class="modal" style="display: none;" role="dialog" aria-labelledby="delete-title" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="delete-title">Delete Mode</h3>
+          <button type="button" id="close-delete-modal" class="modal-close" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p id="delete-message">Are you sure you want to delete this mode? This action cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="cancel-delete-btn" class="btn-secondary">Cancel</button>
+          <button type="button" id="confirm-delete-btn" class="btn-danger">Delete</button>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Shortcuts Tab -->
   <div class="tab-content" data-content="shortcuts">
     <div class="form-group">
       <label>Keyboard Shortcuts</label>
-      <div class="help-text">
-        View your current keyboard shortcuts. Click "Customize" to modify them in Chrome settings.
-      </div>
       <div id="shortcuts-list" class="shortcuts-list">
         <!-- Shortcuts will be dynamically populated here -->
       </div>

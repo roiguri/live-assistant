@@ -1,31 +1,60 @@
-// Popup Prompt Manager - Simplified for popup context
+// Popup Prompt Manager
 const PromptManager = (function() {
     'use strict';
     
-    const STORAGE_KEY = 'customInstructions';
+    const STORAGE_KEYS = {
+        CUSTOM_PROMPTS: 'customPrompts',
+        ACTIVE_PROMPT_INDEX: 'activePromptIndex'
+    };
 
-    async function getCustomInstructions() {
+    async function getCustomPrompts() {
         try {
-            const result = await chrome.storage.local.get([STORAGE_KEY]);
-            return result[STORAGE_KEY] || '';
+            const result = await chrome.storage.local.get([
+                STORAGE_KEYS.CUSTOM_PROMPTS,
+                STORAGE_KEYS.ACTIVE_PROMPT_INDEX
+            ]);
+            
+            const customPrompts = result[STORAGE_KEYS.CUSTOM_PROMPTS] || [];
+            const activePromptIndex = result[STORAGE_KEYS.ACTIVE_PROMPT_INDEX] ?? -1;
+            
+            return {
+                customPrompts,
+                activePromptIndex
+            };
         } catch (error) {
-          // Silently return empty string on error - UI will handle gracefully
-          return '';
+            // Return default values on error - UI will handle gracefully
+            return {
+                customPrompts: [],
+                activePromptIndex: -1
+            };
         }
     }
 
-    async function setCustomInstructions(instructions) {
+    async function saveCustomPrompts(prompts, activeIndex) {
         try {
-            if (typeof instructions !== 'string') {
-                return { success: false, error: 'Instructions must be a string' };
+            if (!Array.isArray(prompts)) {
+                return { success: false, error: 'Prompts must be an array' };
             }
             
-            if (instructions.length > 2000) {
-                return { success: false, error: 'Instructions too long (max 2000 characters)' };
+            if (typeof activeIndex !== 'number' || activeIndex < -1) {
+                return { success: false, error: 'Active index must be a number >= -1' };
+            }
+            
+            if (activeIndex >= prompts.length) {
+                return { success: false, error: 'Active index out of bounds' };
+            }
+            
+            // Validate each prompt object
+            for (let i = 0; i < prompts.length; i++) {
+                const validation = validatePrompt(prompts[i]);
+                if (!validation.valid) {
+                    return { success: false, error: `Prompt ${i + 1}: ${validation.error}` };
+                }
             }
 
             await chrome.storage.local.set({
-                [STORAGE_KEY]: instructions.trim()
+                [STORAGE_KEYS.CUSTOM_PROMPTS]: prompts,
+                [STORAGE_KEYS.ACTIVE_PROMPT_INDEX]: activeIndex
             });
             
             return { success: true };
@@ -35,22 +64,42 @@ const PromptManager = (function() {
         }
     }
 
-    function validateInstructions(instructions) {
-        if (typeof instructions !== 'string') {
-            return { valid: false, error: 'Instructions must be text' };
+    function validatePrompt(prompt) {
+        if (!prompt || typeof prompt !== 'object') {
+            return { valid: false, error: 'Prompt must be an object' };
         }
         
-        if (instructions.length > 2000) {
-            return { valid: false, error: 'Too long (max 2000 characters)' };
+        if (!prompt.name || typeof prompt.name !== 'string') {
+            return { valid: false, error: 'Prompt name is required and must be text' };
+        }
+        
+        if (prompt.name.trim().length === 0) {
+            return { valid: false, error: 'Prompt name cannot be empty' };
+        }
+        
+        if (prompt.name.length > 100) {
+            return { valid: false, error: 'Prompt name too long (max 100 characters)' };
+        }
+        
+        if (!prompt.prompt || typeof prompt.prompt !== 'string') {
+            return { valid: false, error: 'Prompt text is required and must be text' };
+        }
+        
+        if (prompt.prompt.trim().length === 0) {
+            return { valid: false, error: 'Prompt text cannot be empty' };
+        }
+        
+        if (prompt.prompt.length > 2000) {
+            return { valid: false, error: 'Prompt text too long (max 2000 characters)' };
         }
         
         return { valid: true };
     }
 
     return {
-        getCustomInstructions,
-        setCustomInstructions,
-        validateInstructions
+        getCustomPrompts,
+        saveCustomPrompts,
+        validatePrompt
     };
 
 })();

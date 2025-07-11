@@ -483,7 +483,7 @@ describe('ConversationManager', () => {
       await conversationManager.clearConversation();
       
       expect(mockChrome.tabs.query).toHaveBeenCalledWith({}, expect.any(Function));
-      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledTimes(4);
       expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
         type: 'CONVERSATION_UPDATE',
         messages: []
@@ -615,6 +615,46 @@ describe('ConversationManager', () => {
             expect(conversationManager.messages).toEqual([]);
             expect(mockConnectionManager.resetContext).toHaveBeenCalled();
             expect(mockChrome.storage.local.set).toHaveBeenCalled();
+        });
+
+        test('clearConversation with resetConnection=false skips connection reset', async () => {
+            conversationManager.setConnectionManager(mockConnectionManager);
+            mockChrome.storage.local.set.mockResolvedValue();
+            mockChrome.tabs.query.mockImplementation((query, callback) => {
+                callback([{ id: 1 }]);
+            });
+            
+            await conversationManager.clearConversation(false);
+            
+            // Verify conversation is cleared
+            expect(conversationManager.messages).toEqual([]);
+            
+            // Verify context reset is NOT called
+            expect(mockConnectionManager.resetContext).not.toHaveBeenCalled();
+            
+            // Verify storage and broadcast still work
+            expect(mockChrome.storage.local.set).toHaveBeenCalled();
+            expect(mockChrome.tabs.query).toHaveBeenCalled();
+        });
+
+        test('clearConversation with resetConnection=true (default) resets connection', async () => {
+            conversationManager.setConnectionManager(mockConnectionManager);
+            mockChrome.storage.local.set.mockResolvedValue();
+            mockChrome.tabs.query.mockImplementation((query, callback) => {
+                callback([{ id: 1 }]);
+            });
+            
+            await conversationManager.clearConversation(true);
+            
+            // Verify conversation is cleared
+            expect(conversationManager.messages).toEqual([]);
+            
+            // Verify context reset IS called
+            expect(mockConnectionManager.resetContext).toHaveBeenCalledTimes(1);
+            
+            // Verify storage and broadcast still work
+            expect(mockChrome.storage.local.set).toHaveBeenCalled();
+            expect(mockChrome.tabs.query).toHaveBeenCalled();
         });
     });
   });

@@ -91,8 +91,14 @@ globalThis.MessageRouter = class MessageRouter {
         this.registerHandler('CLEAR_CONVERSATION', (message, sender, sendResponse) => {
             try {
                 if (this.conversationManager) {
-                    this.conversationManager.clearConversation();
-                    this.errorHandler.debug('MessageRouter', 'CLEAR_CONVERSATION completed');
+                    // Check if this is a manual clear (should reset connection) or mode change (shouldn't)
+                    const resetConnection = message.resetConnection || false;
+                    this.conversationManager.clearConversation(resetConnection);
+                    
+                    const logMsg = resetConnection ? 
+                        'CLEAR_CONVERSATION completed (with connection reset)' : 
+                        'CLEAR_CONVERSATION completed (no connection reset)';
+                    this.errorHandler.debug('MessageRouter', logMsg);
                 } else {
                     this.errorHandler.debug('MessageRouter', 'CLEAR_CONVERSATION - no conversation manager');
                 }

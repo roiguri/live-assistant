@@ -605,9 +605,20 @@ globalThis.ConnectionManager = class ConnectionManager {
       try {
           const defaultPrompt = this._getDefaultSystemPrompt();
           
-          const result = await chrome.storage.local.get(['customInstructions']);
-          const customInstructions = result.customInstructions || '';
-          return customInstructions.trim() ? `${defaultPrompt}\n\nUser Instructions:\n${customInstructions}` : defaultPrompt;
+          const result = await chrome.storage.local.get(['customPrompts', 'activePromptIndex']);
+          const customPrompts = result.customPrompts || [];
+          const activePromptIndex = result.activePromptIndex ?? -1;
+          
+          if (activePromptIndex === -1 || activePromptIndex >= customPrompts.length) {
+              return defaultPrompt;
+          }
+          
+          const activePrompt = customPrompts[activePromptIndex];
+          if (!activePrompt || !activePrompt.prompt) {
+              return defaultPrompt;
+          }
+          
+          return `${defaultPrompt}\n\nUser Instructions:\n${activePrompt.prompt}`;
       } catch (error) {
           this.errorHandler.handleStorageError(error, 'get custom prompt');
           return this._getDefaultSystemPrompt();
@@ -631,8 +642,8 @@ globalThis.ConnectionManager = class ConnectionManager {
     return `You are a helpful AI assistant.
 
 Key capabilities:
-- Analyze screenshots given and provide relevant insights
 - Answer questions from user.
+- Analyze screenshots given and provide relevant insights
 
 Guidelines:
 - Be concise but helpful in your responses

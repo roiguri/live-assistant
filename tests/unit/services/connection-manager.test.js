@@ -85,7 +85,8 @@ describe('ConnectionManager', () => {
 
     it('should combine default prompt with custom instructions', async () => {
       global.chrome.storage.local.get.mockResolvedValue({
-        customInstructions: 'Be extra friendly'
+        customPrompts: [{ name: 'Test Mode', prompt: 'Be extra friendly' }],
+        activePromptIndex: 0
       });
       
       const prompt = await connectionManager.getCombinedSystemPrompt();
@@ -95,7 +96,10 @@ describe('ConnectionManager', () => {
     });
 
     it('should return default prompt when no custom instructions', async () => {
-      global.chrome.storage.local.get.mockResolvedValue({ customInstructions: '' });
+      global.chrome.storage.local.get.mockResolvedValue({ 
+        customPrompts: [],
+        activePromptIndex: -1 
+      });
       
       const prompt = await connectionManager.getCombinedSystemPrompt();
       

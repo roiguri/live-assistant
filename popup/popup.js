@@ -22,19 +22,44 @@
   const statusDiv = document.getElementById('status');
   
   // Prompts tab elements
-  const customInstructionsInput = document.getElementById('customInstructions');
-  const saveInstructionsBtn = document.getElementById('saveInstructions');
-  const clearInstructionsBtn = document.getElementById('clearInstructions');
-  const charCounter = document.getElementById('charCounter');
+  const modeChipsContainer = document.getElementById('mode-chips');
+  const modesListContainer = document.getElementById('modes-list');
+  const addModeBtn = document.getElementById('add-mode-btn');
+  
+  // Modal elements
+  const modeEditorModal = document.getElementById('mode-editor-modal');
+  const confirmationModal = document.getElementById('confirmation-modal');
+  const deleteModal = document.getElementById('delete-modal');
+  const modeNameInput = document.getElementById('mode-name');
+  const modePromptInput = document.getElementById('mode-prompt');
+  const nameCounter = document.getElementById('name-counter');
+  const promptCounter = document.getElementById('prompt-counter');
+  
+  // Modal control elements
+  const closeEditorBtn = document.getElementById('close-editor-modal');
+  const closeConfirmBtn = document.getElementById('close-confirm-modal');
+  const closeDeleteBtn = document.getElementById('close-delete-modal');
+  const cancelEditorBtn = document.getElementById('cancel-editor-btn');
+  const saveModeBtn = document.getElementById('save-mode-btn');
+  const cancelConfirmBtn = document.getElementById('cancel-confirm-btn');
+  const confirmSwitchBtn = document.getElementById('confirm-switch-btn');
+  const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+  const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
   
   // Tab management
   const tabs = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tab-content');
   
+  // State management
+  let currentModes = [];
+  let activeIndex = -1;
+  let editingModeIndex = -1;
+  let pendingActivation = null;
+  
   // Initialize everything
   loadSavedSettings();
   setupTabs();
-  setupPromptHandlers();
+  setupPromptsHandlers();
   setupShortcutsTab();
   
   // Event listeners
@@ -68,22 +93,41 @@
       
       // Load content when switching tabs
       if (tabName === 'prompts') {
-          updateCharCounter();
+          loadPrompts();
       } else if (tabName === 'shortcuts') {
           loadShortcuts();
       }
   }
   
-  function setupPromptHandlers() {
-      if (customInstructionsInput) {
-          customInstructionsInput.addEventListener('input', handleInstructionsInput);
-      }
-      if (saveInstructionsBtn) {
-          saveInstructionsBtn.addEventListener('click', saveInstructions);
-      }
-      if (clearInstructionsBtn) {
-          clearInstructionsBtn.addEventListener('click', clearInstructions);
-      }
+  function setupPromptsHandlers() {
+      // Mode management
+      if (addModeBtn) addModeBtn.addEventListener('click', showAddModeEditor);
+      
+      // Modal controls
+      if (closeEditorBtn) closeEditorBtn.addEventListener('click', closeEditorModal);
+      if (closeConfirmBtn) closeConfirmBtn.addEventListener('click', closeConfirmationModal);
+      if (closeDeleteBtn) closeDeleteBtn.addEventListener('click', closeDeleteModal);
+      if (cancelEditorBtn) cancelEditorBtn.addEventListener('click', closeEditorModal);
+      if (cancelConfirmBtn) cancelConfirmBtn.addEventListener('click', closeConfirmationModal);
+      if (cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+      if (saveModeBtn) saveModeBtn.addEventListener('click', handleSaveMode);
+      if (confirmSwitchBtn) confirmSwitchBtn.addEventListener('click', handleConfirmSwitch);
+      if (confirmDeleteBtn) confirmDeleteBtn.addEventListener('click', handleConfirmDelete);
+      
+      // Input character counters
+      if (modeNameInput) modeNameInput.addEventListener('input', updateNameCounter);
+      if (modePromptInput) modePromptInput.addEventListener('input', updatePromptCounter);
+      
+      // Modal backdrop clicks
+      if (modeEditorModal) modeEditorModal.addEventListener('click', (e) => {
+          if (e.target === modeEditorModal) closeEditorModal();
+      });
+      if (confirmationModal) confirmationModal.addEventListener('click', (e) => {
+          if (e.target === confirmationModal) closeConfirmationModal();
+      });
+      if (deleteModal) deleteModal.addEventListener('click', (e) => {
+          if (e.target === deleteModal) closeDeleteModal();
+      });
   }
   
   // Load settings
@@ -93,7 +137,6 @@
           const result = await chrome.storage.secure.get(['geminiApiKey']);
           if (result.geminiApiKey) {
               apiKeyInput.value = result.geminiApiKey;
-              showStatus('API key loaded', 'success');
           }
       } catch (error) {
           // Fallback to regular storage if secure storage not available
@@ -101,7 +144,6 @@
               const result = await chrome.storage.local.get(['geminiApiKey']);
               if (result.geminiApiKey) {
                   apiKeyInput.value = result.geminiApiKey;
-                  showStatus('API key loaded', 'success');
               }
           } catch (err) {
               showStatus('Failed to load API key', 'error');
@@ -139,16 +181,8 @@
           saveModelBtn.disabled = true;
       }
       
-      // Load custom instructions
-      if (PromptManager && customInstructionsInput) {
-          try {
-              const customInstructions = await PromptManager.getCustomInstructions();
-              customInstructionsInput.value = customInstructions;
-              updateCharCounter();
-          } catch (error) {
-              showStatus('Failed to load custom instructions', 'error');
-          }
-      }
+      // Load custom prompts
+      loadPrompts();
   }
   
   // Handle position change
@@ -381,74 +415,362 @@
       }
   }
   
-  // Prompt management functions
-  function handleInstructionsInput() {
-      updateCharCounter();
-      
-      // Validate instructions
-      if (PromptManager) {
-          const instructions = customInstructionsInput.value;
-          const validation = PromptManager.validateInstructions(instructions);
-          
-          if (!validation.valid) {
-              showStatus(validation.error, 'error');
-              saveInstructionsBtn.disabled = true;
-          } else {
-              saveInstructionsBtn.disabled = false;
-              // Clear error status if input becomes valid
-              if (statusDiv.classList.contains('error')) {
-                  statusDiv.style.display = 'none';
-              }
-          }
-      }
-  }
+  // ===========================================
+  // DYNAMIC PROMPTS SYSTEM
+  // ===========================================
   
-  function updateCharCounter() {
-      if (!charCounter || !customInstructionsInput) return;
-      
-      const currentLength = customInstructionsInput.value.length;
-      const maxLength = 2000;
-      
-      charCounter.textContent = `${currentLength} / ${maxLength}`;
-      charCounter.classList.toggle('warning', currentLength > maxLength * 0.9);
-  }
-  
-  async function saveInstructions() {
+  async function loadPrompts() {
       if (!PromptManager) {
           showStatus('PromptManager not available', 'error');
           return;
       }
       
-      const instructions = customInstructionsInput.value.trim();
+      try {
+          const { customPrompts, activePromptIndex } = await PromptManager.getCustomPrompts();
+          currentModes = customPrompts;
+          activeIndex = activePromptIndex;
+          renderUnifiedView();
+      } catch (error) {
+          showStatus('Failed to load prompts', 'error');
+      }
+  }
+  
+  function renderUnifiedView() {
+      renderModeChips();
+      renderManagementList();
+  }
+  
+  function renderModeChips() {
+      if (!modeChipsContainer) return;
+      
+      modeChipsContainer.innerHTML = '';
+      
+      const defaultChip = createModeChip('Default', null, -1);
+      modeChipsContainer.appendChild(defaultChip);
+      
+      currentModes.forEach((mode, index) => {
+          const chip = createModeChip(mode.name, mode.prompt, index);
+          modeChipsContainer.appendChild(chip);
+      });
+  }
+  
+  function createModeChip(name, prompt, index) {
+      const chip = document.createElement('div');
+      chip.className = 'mode-chip';
+      chip.setAttribute('role', 'radio');
+      chip.setAttribute('aria-checked', activeIndex === index);
+      chip.setAttribute('tabindex', '0');
+      
+      if (index === -1) {
+          chip.classList.add('default-mode');
+      }
+      
+      if (activeIndex === index) {
+          chip.classList.add('active-chip');
+      }
+      
+      chip.innerHTML = `
+          <span>${name}</span>
+          ${activeIndex === index ? '<span>✓</span>' : ''}
+      `;
+      
+      chip.addEventListener('click', () => handleModeActivation(index));
+      chip.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleModeActivation(index);
+          }
+      });
+      
+      return chip;
+  }
+  
+  function handleModeActivation(index) {
+      if (activeIndex === index) return;
+      
+      pendingActivation = index;
+      
+      const confirmMessage = document.getElementById('confirm-message');
+      if (confirmMessage) {
+          const modeName = index === -1 ? 'Default' : currentModes[index].name;
+          confirmMessage.textContent = `Activating "${modeName}" mode will start a new chat and clear your current conversation. Do you want to continue?`;
+      }
+      
+      if (confirmationModal) {
+          confirmationModal.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+      }
+  }
+  
+  async function handleConfirmSwitch() {
+      if (pendingActivation === null) return;
       
       try {
-          const result = await PromptManager.setCustomInstructions(instructions);
+          const result = await PromptManager.saveCustomPrompts(currentModes, pendingActivation);
           
           if (result.success) {
-              showStatus('Instructions saved successfully!', 'success');
+              activeIndex = pendingActivation;
+              renderModeChips();
               
-              // Notify background script to update system prompt
+              chrome.runtime.sendMessage({ type: 'CLEAR_CONVERSATION' }).catch(() => {
+                  // Ignore if background script not ready
+              });
+              
               chrome.runtime.sendMessage({ type: 'PROMPT_UPDATED' }).catch(() => {
                   // Ignore if background script not ready
               });
               
+              showStatus('Mode activated successfully!', 'success');
           } else {
               showStatus(result.error, 'error');
           }
       } catch (error) {
-          showStatus('Failed to save instructions', 'error');
+          showStatus('Failed to activate mode', 'error');
+      }
+      
+      closeConfirmationModal();
+  }
+  
+  function renderManagementList() {
+      if (!modesListContainer) return;
+      
+      modesListContainer.innerHTML = '';
+      
+      if (currentModes.length === 0) {
+          const emptyState = document.createElement('div');
+          emptyState.className = 'modes-list-empty';
+          emptyState.textContent = 'No custom modes created yet. Click "Add New Mode" to get started.';
+          modesListContainer.appendChild(emptyState);
+          return;
+      }
+      
+      currentModes.forEach((mode, index) => {
+          const item = createModeListItem(mode, index);
+          modesListContainer.appendChild(item);
+      });
+  }
+  
+  function createModeListItem(mode, index) {
+      const item = document.createElement('div');
+      item.className = 'mode-item';
+      item.setAttribute('role', 'listitem');
+      
+      const preview = mode.prompt.length > 50 ? mode.prompt.substring(0, 50) + '...' : mode.prompt;
+      
+      item.innerHTML = `
+          <div class="mode-info">
+              <div class="mode-name">${escapeHtml(mode.name)}</div>
+              <div class="mode-preview">${escapeHtml(preview)}</div>
+          </div>
+          <div class="mode-actions">
+              <button class="mode-action-btn edit-btn" data-index="${index}">Edit</button>
+              <button class="mode-action-btn delete-btn" data-index="${index}">Delete</button>
+          </div>
+      `;
+      
+      const editBtn = item.querySelector('.edit-btn');
+      const deleteBtn = item.querySelector('.delete-btn');
+      
+      editBtn.addEventListener('click', () => showEditModeEditor(index));
+      deleteBtn.addEventListener('click', () => showDeleteConfirmation(index));
+      
+      return item;
+  }
+  
+  
+  function showAddModeEditor() {
+      editingModeIndex = -1;
+      resetEditorModal();
+      
+      const editorTitle = document.getElementById('editor-title');
+      if (editorTitle) editorTitle.textContent = 'Add New Mode';
+      
+      if (modeEditorModal) {
+          modeEditorModal.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+          if (modeNameInput) modeNameInput.focus();
       }
   }
   
-  async function clearInstructions() {
-      if (confirm('Clear all custom instructions?')) {
-          customInstructionsInput.value = '';
-          await saveInstructions();
-          updateCharCounter();
+  function showEditModeEditor(index) {
+      editingModeIndex = index;
+      const mode = currentModes[index];
+      
+      if (modeNameInput) modeNameInput.value = mode.name;
+      if (modePromptInput) modePromptInput.value = mode.prompt;
+      
+      updateNameCounter();
+      updatePromptCounter();
+      
+      const editorTitle = document.getElementById('editor-title');
+      if (editorTitle) editorTitle.textContent = 'Edit Mode';
+      
+      if (modeEditorModal) {
+          modeEditorModal.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+          if (modeNameInput) modeNameInput.focus();
       }
   }
   
-  // Shortcuts tab functionality
+  function showDeleteConfirmation(index) {
+      editingModeIndex = index;
+      const mode = currentModes[index];
+      
+      const deleteMessage = document.getElementById('delete-message');
+      if (deleteMessage) {
+          deleteMessage.textContent = `Are you sure you want to delete "${mode.name}"? This action cannot be undone.`;
+      }
+      
+      if (deleteModal) {
+          deleteModal.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+      }
+  }
+  
+  async function handleSaveMode() {
+      if (!PromptManager) {
+          showStatus('PromptManager not available', 'error');
+          return;
+      }
+      
+      const name = modeNameInput?.value.trim() || '';
+      const prompt = modePromptInput?.value.trim() || '';
+      
+      if (!name || !prompt) {
+          showStatus('Name and prompt are required', 'error');
+          return;
+      }
+      
+      const newMode = { name, prompt };
+      const validation = PromptManager.validatePrompt(newMode);
+      
+      if (!validation.valid) {
+          showStatus(validation.error, 'error');
+          return;
+      }
+      
+      try {
+          let updatedModes = [...currentModes];
+          let newActiveIndex = activeIndex;
+          
+          if (editingModeIndex === -1) {
+              updatedModes.push(newMode);
+          } else {
+              updatedModes[editingModeIndex] = newMode;
+          }
+          
+          const result = await PromptManager.saveCustomPrompts(updatedModes, newActiveIndex);
+          
+          if (result.success) {
+              currentModes = updatedModes;
+              renderUnifiedView();
+              closeEditorModal();
+              
+              const action = editingModeIndex === -1 ? 'added' : 'updated';
+              showStatus(`Mode ${action} successfully!`, 'success');
+          } else {
+              showStatus(result.error, 'error');
+          }
+      } catch (error) {
+          showStatus('Failed to save mode', 'error');
+      }
+  }
+  
+  async function handleConfirmDelete() {
+      if (editingModeIndex === -1) return;
+      
+      try {
+          let updatedModes = [...currentModes];
+          let newActiveIndex = activeIndex;
+          
+          updatedModes.splice(editingModeIndex, 1);
+          
+          if (activeIndex === editingModeIndex) {
+              newActiveIndex = -1; // Switch to default
+          } else if (activeIndex > editingModeIndex) {
+              newActiveIndex = activeIndex - 1;
+          }
+          
+          const result = await PromptManager.saveCustomPrompts(updatedModes, newActiveIndex);
+          
+          if (result.success) {
+              currentModes = updatedModes;
+              activeIndex = newActiveIndex;
+              renderUnifiedView();
+              closeDeleteModal();
+              
+              if (activeIndex !== newActiveIndex) {
+                  chrome.runtime.sendMessage({ type: 'PROMPT_UPDATED' }).catch(() => {
+                      // Ignore if background script not ready
+                  });
+              }
+              
+              showStatus('Mode deleted successfully!', 'success');
+          } else {
+              showStatus(result.error, 'error');
+          }
+      } catch (error) {
+          showStatus('Failed to delete mode', 'error');
+      }
+  }
+  
+  function resetEditorModal() {
+      if (modeNameInput) modeNameInput.value = '';
+      if (modePromptInput) modePromptInput.value = '';
+      updateNameCounter();
+      updatePromptCounter();
+  }
+  
+  function closeEditorModal() {
+      if (modeEditorModal) {
+          modeEditorModal.style.display = 'none';
+          document.body.style.overflow = '';
+      }
+      editingModeIndex = -1;
+  }
+  
+  function closeConfirmationModal() {
+      if (confirmationModal) {
+          confirmationModal.style.display = 'none';
+          document.body.style.overflow = '';
+      }
+      pendingActivation = null;
+  }
+  
+  function closeDeleteModal() {
+      if (deleteModal) {
+          deleteModal.style.display = 'none';
+          document.body.style.overflow = '';
+      }
+      editingModeIndex = -1;
+  }
+  
+  function updateNameCounter() {
+      if (!nameCounter || !modeNameInput) return;
+      
+      const currentLength = modeNameInput.value.length;
+      const maxLength = 100;
+      
+      nameCounter.textContent = `${currentLength} / ${maxLength}`;
+      nameCounter.classList.toggle('warning', currentLength > maxLength * 0.9);
+  }
+  
+  function updatePromptCounter() {
+      if (!promptCounter || !modePromptInput) return;
+      
+      const currentLength = modePromptInput.value.length;
+      const maxLength = 2000;
+      
+      promptCounter.textContent = `${currentLength} / ${maxLength}`;
+      promptCounter.classList.toggle('warning', currentLength > maxLength * 0.9);
+  }
+  
+  function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+  }
+  
   function setupShortcutsTab() {
       loadShortcuts();
   }

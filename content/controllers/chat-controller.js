@@ -98,7 +98,8 @@ window.ChatController = (function() {
           if (confirm('Start a new chat? (Previous chat won\'t be saved)')) {
             // Clear conversation via background to sync across all tabs
             chrome.runtime.sendMessage({
-              type: 'CLEAR_CONVERSATION'
+              type: 'CLEAR_CONVERSATION',
+              resetConnection: true // Manual clear should reset connection
             });
           }
           break;

@@ -385,7 +385,8 @@ describe('ChatController', () => {
 
             expect(global.confirm).toHaveBeenCalledWith('Start a new chat? (Previous chat won\'t be saved)');
             expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith({
-                type: 'CLEAR_CONVERSATION'
+                type: 'CLEAR_CONVERSATION',
+                resetConnection: true
             });
         });
 

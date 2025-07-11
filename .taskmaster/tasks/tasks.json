@@ -1,9 +1,140 @@
 {
   "master": {
-    "tasks": [],
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Refactor Data Management Layer",
+        "description": "Update prompt-manager-popup.js to handle dynamic array of custom prompts and active index",
+        "details": "Replace existing functions in /popup/prompt-manager-popup.js with getCustomPrompts() and saveCustomPrompts(prompts, activeIndex). Implement proper error handling and default values: return empty array [] for customPrompts and -1 for activePromptIndex when data doesn't exist in chrome.storage.local. Ensure backwards compatibility with existing storage structure.",
+        "testStrategy": "Unit tests for getCustomPrompts() and saveCustomPrompts() functions. Test default value handling when storage is empty. Verify data persistence across browser sessions.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Design Two-View UI Structure",
+        "description": "Create HTML structure for Activation and Management views in popup.html",
+        "details": "Update /popup/popup.html with containers for two distinct views within the 'Prompts' tab: 1) Activation view with chips container and 'Manage Custom Modes' button, 2) Management view with mode list container, 'Add New Mode' button, and 'Back' button. Add modal/dialog structure for confirmation prompts and mode editor forms. Use semantic HTML with proper accessibility attributes.",
+        "testStrategy": "Visual inspection of HTML structure. Test accessibility with screen readers. Verify proper tab navigation order.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Implement CSS Styling System",
+        "description": "Create responsive styles for chips, management view, and modal dialogs",
+        "details": "Update /popup/popup.css with styles for: mode chips with hover/active states (.active-chip class), management view list items with edit/delete buttons, modal dialogs for confirmations and editor forms, responsive design for various popup sizes. Follow existing design patterns and maintain consistency with current UI elements.",
+        "testStrategy": "Cross-browser testing for CSS compatibility. Test responsive behavior at different popup sizes. Verify visual hierarchy and accessibility contrast ratios.",
+        "priority": "medium",
+        "dependencies": [
+          2
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Build Dynamic UI Rendering Engine",
+        "description": "Create main render() function to build UI based on current state and view",
+        "details": "Implement stateless render() function in /popup/popup.js that reads from chrome.storage.local and builds entire 'Prompts' tab UI. Handle view switching between Activation and Management views. Dynamically generate chips for all modes including 'Default'. Render management list with proper controls. Ensure UI always reflects storage state as single source of truth.",
+        "testStrategy": "Test UI rendering with various data states: empty prompts, single prompt, multiple prompts. Verify correct active state highlighting. Test view switching functionality.",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement Mode Activation Logic",
+        "description": "Add click handlers for mode chips with confirmation dialog and reconnection trigger",
+        "details": "Implement click handlers for mode chips in Activation view. Show confirmation dialog: 'Activating this mode will start a new chat and clear your current conversation. Do you want to continue?' On confirmation, update activePromptIndex in storage, dispatch PROMPT_UPDATED message to trigger reconnection, and re-render UI. Handle 'Default' mode activation (activePromptIndex = -1).",
+        "testStrategy": "Test mode switching with various scenarios. Verify confirmation dialog behavior. Test PROMPT_UPDATED message dispatch. Confirm chat clearing and reconnection occurs.",
+        "priority": "high",
+        "dependencies": [
+          4
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Create Mode Management CRUD Operations",
+        "description": "Implement Add, Edit, Delete functionality for custom modes in Management view",
+        "details": "Implement handlers for Management view: 1) 'Add New Mode' - show editor with Name/Prompt fields, 2) 'Edit' - pre-fill editor with existing mode data, 3) 'Delete' - show confirmation and handle active mode cleanup, 4) 'Save'/'Cancel' - persist changes or discard. Handle edge cases like deleting active mode (reset to Default). Validate input fields and prevent duplicate names.",
+        "testStrategy": "Test all CRUD operations. Verify data validation and error handling. Test edge cases like deleting active mode or creating duplicate names.",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Update Backend Prompt Generation",
+        "description": "Modify getCombinedSystemPrompt() to use new dynamic prompt structure",
+        "details": "Update getCombinedSystemPrompt() method in /services/connection-manager.js to fetch customPrompts and activePromptIndex from storage. If activePromptIndex is -1 or invalid, return default system prompt. Otherwise, combine customPrompts[activePromptIndex].prompt with default system prompt. Handle async storage operations and error cases gracefully.",
+        "testStrategy": "Test prompt generation with various activePromptIndex values. Verify fallback to default prompt when index is invalid. Test integration with existing connection flow.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Implement View Navigation System",
+        "description": "Add navigation controls between Activation and Management views",
+        "details": "Implement view switching logic: 'Manage Custom Modes' button to navigate to Management view, 'Back' button to return to Activation view. Maintain view state and ensure proper cleanup when switching views. Handle browser back/forward navigation if applicable. Preserve any unsaved changes warning.",
+        "testStrategy": "Test navigation flow between views. Verify proper state management during view switches. Test edge cases like navigation during editing operations.",
+        "priority": "medium",
+        "dependencies": [
+          5,
+          6
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Add Error Handling and Validation",
+        "description": "Implement comprehensive error handling for storage operations and user input",
+        "details": "Add error handling for: chrome.storage operations failures, invalid data structures in storage, network connectivity issues during reconnection, user input validation (empty names, duplicate names, invalid characters). Implement user-friendly error messages and recovery mechanisms. Add logging for debugging purposes.",
+        "testStrategy": "Test error scenarios: storage quota exceeded, network failures, invalid user input. Verify graceful degradation and user feedback. Test recovery mechanisms.",
+        "priority": "medium",
+        "dependencies": [
+          7
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Integration Testing and Performance Optimization",
+        "description": "Conduct end-to-end testing and optimize performance for the complete system",
+        "details": "Perform comprehensive integration testing of the entire Custom Chat Modes system. Test interactions between popup UI, storage layer, and backend prompt generation. Optimize performance: minimize storage operations, implement efficient UI updates, add debouncing for user input. Test with large numbers of custom modes. Verify memory usage and cleanup.",
+        "testStrategy": "End-to-end testing scenarios covering all user workflows. Performance testing with various data sizes. Memory leak detection. Cross-browser compatibility testing.",
+        "priority": "medium",
+        "dependencies": [
+          8,
+          9
+        ],
+        "status": "done",
+        "subtasks": []
+      }
+    ],
     "metadata": {
       "created": "2025-07-09T17:30:53.237Z",
-      "updated": "2025-07-10T20:20:12.371Z",
+      "updated": "2025-07-11T05:33:54.122Z",
       "description": "Tasks for master context"
     }
   }

@@ -161,15 +161,15 @@ globalThis.ConversationManager = class ConversationManager {
         return this.messages.slice(-limit);
     }
     
-    async clearConversation() {
+    async clearConversation(resetConnection = true) {
         this.messages = [];
         this.currentUIState = 'minimal'; // Reset UI state to minimal
         await this.saveToStorage();
         this.broadcastUpdate();
         this.broadcastUIStateUpdate(); // Broadcast UI state reset to all tabs
         
-        // Reset Gemini conversation context to start fresh
-        if (this.connectionManager) {
+        // Reset Gemini conversation context to start fresh (optional)
+        if (resetConnection && this.connectionManager) {
             try {
                 this.connectionManager.resetContext();
                 this.errorHandler.info('ConversationManager', 'Conversation cleared, UI reset to minimal, Gemini context reset');
@@ -177,8 +177,10 @@ globalThis.ConversationManager = class ConversationManager {
                 this.errorHandler.error('ConversationManager', 'Context reset failed during conversation clear', error.message);
                 this.errorHandler.info('ConversationManager', 'Conversation cleared, UI reset to minimal (context reset failed)');
             }
+        } else if (resetConnection) {
+            this.errorHandler.info('ConversationManager', 'Conversation cleared, UI reset to minimal (no connection manager)');
         } else {
-            this.errorHandler.info('ConversationManager', 'Conversation cleared, UI reset to minimal');
+            this.errorHandler.info('ConversationManager', 'Conversation cleared, UI reset to minimal (connection reset skipped)');
         }
     }
     
