@@ -37,15 +37,41 @@ function loadServices() {
   const geminiClientCode = fs.readFileSync(geminiClientPath, 'utf8');
   eval(geminiClientCode);
 
+  // Load Connection Services (ConnectionManager depends on these)
+  const websocketServicePath = path.join(__dirname, '../../../services/connection/websocket-service.js');
+  const websocketServiceCode = fs.readFileSync(websocketServicePath, 'utf8');
+  eval(websocketServiceCode);
+
+  const retryServicePath = path.join(__dirname, '../../../services/connection/retry-service.js');
+  const retryServiceCode = fs.readFileSync(retryServicePath, 'utf8');
+  eval(retryServiceCode);
+
+  const messageQueueServicePath = path.join(__dirname, '../../../services/connection/message-queue-service.js');
+  const messageQueueServiceCode = fs.readFileSync(messageQueueServicePath, 'utf8');
+  eval(messageQueueServiceCode);
+
+  const setupServicePath = path.join(__dirname, '../../../services/connection/setup-service.js');
+  const setupServiceCode = fs.readFileSync(setupServicePath, 'utf8');
+  eval(setupServiceCode);
+
+  const responseRouterPath = path.join(__dirname, '../../../services/connection/response-router.js');
+  const responseRouterCode = fs.readFileSync(responseRouterPath, 'utf8');
+  eval(responseRouterCode);
+
   // Load ConnectionManager
   const connectionManagerPath = path.join(__dirname, '../../../services/connection-manager.js');
   const connectionManagerCode = fs.readFileSync(connectionManagerPath, 'utf8');
   eval(connectionManagerCode);
 
-  return { 
-    ErrorHandler: global.ErrorHandler, 
+  return {
+    ErrorHandler: global.ErrorHandler,
     GeminiClient: global.GeminiClient,
     ApiService: global.ApiService,
+    WebSocketService: global.WebSocketService,
+    RetryService: global.RetryService,
+    MessageQueueService: global.MessageQueueService,
+    SetupService: global.SetupService,
+    ResponseRouter: global.ResponseRouter,
     ConnectionManager: global.ConnectionManager
   };
 }

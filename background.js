@@ -2,6 +2,11 @@
 importScripts('services/error-handler.js');
 importScripts('services/api-service.js');
 importScripts('services/gemini-client.js');
+importScripts('services/connection/websocket-service.js');
+importScripts('services/connection/retry-service.js');
+importScripts('services/connection/message-queue-service.js');
+importScripts('services/connection/setup-service.js');
+importScripts('services/connection/response-router.js');
 importScripts('services/connection-manager.js');
 importScripts('services/message-router.js');
 importScripts('services/conversation-manager.js');
