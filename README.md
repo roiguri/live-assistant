@@ -1,3 +1,5 @@
+> **Status:** Personal experimental project. Not actively maintained — provided as-is for reference.
+
 # Live Stream AI Assistant
 
 A Chrome extension that provides real-time AI assistance with screen capture capabilities, powered by Google's Gemini Live API.
@@ -24,9 +26,10 @@ A Chrome extension that provides real-time AI assistance with screen capture cap
 - Context menu with quick actions
 
 ### ⌨️ Keyboard Shortcuts
-- `Ctrl+Shift+L` (Mac: `Cmd+Shift+L`) - Toggle chat visibility
-- `Ctrl+Shift+F` (Mac: `Cmd+Shift+F`) - Focus chat input
-- `Ctrl+Shift+S` (Mac: `Cmd+Shift+S`) - Take screenshot and send to AI
+- `Ctrl+Shift+F` (Mac: `Cmd+Shift+F`) — Toggle chat (open+focus → focus → close)
+- `Ctrl+Shift+S` (Mac: `Cmd+Shift+S`) — Take screenshot and send to AI
+- `Ctrl+Shift+Z` (Mac: `Cmd+Shift+Z`) — Start a new chat
+- `Ctrl+Shift+Q` (Mac: `Cmd+Shift+Q`) — Refresh connection to service
 
 ### 🔒 Privacy
 - Direct connection to Gemini API - no third-party servers
