@@ -283,7 +283,7 @@ describe('ConnectionManager', () => {
 
   describe('context reset', () => {
     beforeEach(() => {
-      jest.spyOn(connectionManager, 'stopRetries').mockImplementation(() => {});
+      jest.spyOn(connectionManager.retryService, 'stopRetries').mockImplementation(() => {});
       jest.spyOn(connectionManager, 'connect').mockImplementation(() => {});
       jest.spyOn(connectionManager.errorHandler, 'info').mockImplementation(() => {});
     });
@@ -294,25 +294,25 @@ describe('ConnectionManager', () => {
 
     it('resets all connection state and clears streaming response', () => {
       connectionManager.currentResponse = 'some text';
-      
+
       connectionManager.resetContext();
-      
+
       expect(connectionManager.currentResponse).toBe('');
       expect(connectionManager.errorHandler.info).toHaveBeenCalledWith('Connection', 'Resetting connection context');
-      expect(connectionManager.stopRetries).toHaveBeenCalled();
+      expect(connectionManager.retryService.stopRetries).toHaveBeenCalled();
       expect(connectionManager.connect).toHaveBeenCalled();
     });
 
     it('logs context reset action', () => {
       connectionManager.resetContext();
-      
+
       expect(connectionManager.errorHandler.info).toHaveBeenCalledWith('Connection', 'Resetting connection context');
     });
   });
 
   describe('manual reconnect', () => {
     beforeEach(() => {
-      jest.spyOn(connectionManager, 'stopRetries').mockImplementation(() => {});
+      jest.spyOn(connectionManager.retryService, 'stopRetries').mockImplementation(() => {});
       jest.spyOn(connectionManager, 'clearConnectionMessages').mockImplementation(() => {});
       jest.spyOn(connectionManager, 'connect').mockImplementation(() => {});
       jest.spyOn(connectionManager.errorHandler, 'info').mockImplementation(() => {});
@@ -324,19 +324,19 @@ describe('ConnectionManager', () => {
 
     it('resets attempt counter and reconnects', () => {
       connectionManager.connectionState.attempts = 3;
-      
+
       connectionManager.manualReconnect();
-      
+
       expect(connectionManager.connectionState.attempts).toBe(0);
-      expect(connectionManager.stopRetries).toHaveBeenCalled();
+      expect(connectionManager.retryService.stopRetries).toHaveBeenCalled();
       expect(connectionManager.connect).toHaveBeenCalled();
     });
 
     it('clears connection messages when conversation manager exists', () => {
       connectionManager.conversationManager = { messages: [] };
-      
+
       connectionManager.manualReconnect();
-      
+
       expect(connectionManager.clearConnectionMessages).toHaveBeenCalled();
     });
   });
